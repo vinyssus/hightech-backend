@@ -721,4 +721,46 @@ class CatalogIntegrationTest {
         assertThat(productRepository.findById(jblId)).isEmpty();
         send(get("/api/me/favorites"), customer, null).andExpect(jsonPath("$.length()").value(0));
     }
+
+    @Test @Order(20)
+    void brand_logo_as_file_under_any_field_name_or_as_uploaded_url() throws Exception {
+        clearInvocations(storage);
+        // Formulaire qui envoie le logo dans un champ « file » (et non « logo »)
+        MockMultipartFile logo = new MockMultipartFile("file", "lenovo.png", "image/png", png(512));
+        mvc.perform(multipart("/api/admin/brands").file(logo).param("name", "Lenovo")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.slug").value("lenovo"))
+                .andExpect(jsonPath("$.logo").value(org.hamcrest.Matchers.containsString("hitech-dz/brands/")));
+        verify(storage).upload(any(), org.mockito.ArgumentMatchers.eq("hitech-dz/brands"));
+
+        // Multipart sans fichier : marque créée sans logo
+        mvc.perform(multipart("/api/admin/brands").param("name", "Asus").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.logo").doesNotExist());
+
+        // Logo déjà envoyé via /uploads/images puis référencé en JSON : déplacé dans hitech-dz/brands
+        JsonNode up = body(mvc.perform(multipart("/api/admin/uploads/images")
+                        .file(new MockMultipartFile("files", "acer.png", "image/png", png(512)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isCreated()));
+        String tmp = up.get(0).get("publicId").asText();
+        send(post("/api/admin/brands"), admin, Map.of("name", "Acer", "logo", up.get(0).get("url").asText(), "logoPublicId", tmp))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.logo").value(org.hamcrest.Matchers.containsString("hitech-dz/brands/")));
+        verify(storage).move(tmp, "hitech-dz/brands");
+
+        // Remplacement du logo en multipart (PUT) : l'ancien est supprimé après le commit
+        clearInvocations(storage);
+        mvc.perform(multipart(org.springframework.http.HttpMethod.PUT, "/api/admin/brands/lenovo")
+                        .file(new MockMultipartFile("logo", "new.png", "image/png", png(512)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Lenovo"));
+        verify(storage).delete(org.mockito.ArgumentMatchers.startsWith("hitech-dz/brands/"));
+
+        send(post("/api/admin/brands"), admin, Map.of("name", "Msi", "logo", "http://pas-https.cm/logo.png"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.logo").exists());
+    }
 }

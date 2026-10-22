@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -171,31 +172,30 @@ public class AdminCatalogController {
         return brands.adminList();
     }
 
-    /** Corps multipart : name (+ logo optionnel). */
+    /** Corps multipart : name + logo optionnel (champ « logo », « file », « image » ou « files »). */
     @PostMapping(path = "/brands", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public BrandDto createBrandMultipart(@RequestParam(required = false) String name,
-                                         @RequestPart(name = "logo", required = false) MultipartFile logo) {
-        return brands.create(name, logo);
+    public BrandDto createBrandMultipart(MultipartHttpServletRequest request) {
+        return brands.create(request.getParameter("name"), firstFile(request),
+                request.getParameter("logoUrl"), request.getParameter("logoPublicId"));
     }
 
-    /** Corps JSON : { name }. */
+    /** Corps JSON : { name, logo? (URL https), logoPublicId? (image envoyée via /uploads/images) }. */
     @PostMapping(path = "/brands", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public BrandDto createBrandJson(@RequestBody BrandNameRequest request) {
-        return brands.create(request.name(), null);
+    public BrandDto createBrandJson(@RequestBody BrandRequest request) {
+        return brands.create(request.name(), null, request.logo(), request.logoPublicId());
     }
 
     @PutMapping(path = "/brands/{slug}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public BrandDto updateBrandMultipart(@PathVariable String slug,
-                                         @RequestParam(required = false) String name,
-                                         @RequestPart(name = "logo", required = false) MultipartFile logo) {
-        return brands.update(slug, name, logo);
+    public BrandDto updateBrandMultipart(@PathVariable String slug, MultipartHttpServletRequest request) {
+        return brands.update(slug, request.getParameter("name"), firstFile(request),
+                request.getParameter("logoUrl"), request.getParameter("logoPublicId"));
     }
 
     @PutMapping(path = "/brands/{slug}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public BrandDto updateBrandJson(@PathVariable String slug, @RequestBody BrandNameRequest request) {
-        return brands.update(slug, request.name(), null);
+    public BrandDto updateBrandJson(@PathVariable String slug, @RequestBody BrandRequest request) {
+        return brands.update(slug, request.name(), null, request.logo(), request.logoPublicId());
     }
 
     @DeleteMapping("/brands/{slug}")
@@ -204,7 +204,18 @@ public class AdminCatalogController {
         brands.delete(slug);
     }
 
-    public record BrandNameRequest(String name) {}
+    public record BrandRequest(String name, String logo, String logoPublicId) {}
+
+    /** Premier fichier non vide, quel que soit le nom du champ utilisé par le formulaire. */
+    private static MultipartFile firstFile(MultipartHttpServletRequest request) {
+        for (String field : List.of("logo", "file", "image", "files")) {
+            MultipartFile f = request.getFile(field);
+            if (f != null && !f.isEmpty()) {
+                return f;
+            }
+        }
+        return request.getFileMap().values().stream().filter(f -> !f.isEmpty()).findFirst().orElse(null);
+    }
 
     // ------------------------------------------------------------------ avis
     @GetMapping("/reviews")

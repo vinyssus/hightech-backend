@@ -45,8 +45,9 @@ public class CloudinaryImageStorageService implements ImageStorageService {
         try {
             Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), options);
             return toStoredImage(result);
-        } catch (IOException | RuntimeException e) {
-            log.error("Échec d'envoi Cloudinary dans {}", folder, e);
+        } catch (IOException | RuntimeException | LinkageError e) {
+            // LinkageError : incompatibilité de bibliothèque, à journaliser plutôt que de renvoyer une 500 opaque
+            log.error("Échec d'envoi Cloudinary dans {} : {}", folder, e.toString(), e);
             throw new ApiException(HttpStatus.BAD_GATEWAY, UPLOAD_FAILED);
         }
     }
@@ -58,7 +59,7 @@ public class CloudinaryImageStorageService implements ImageStorageService {
         }
         try {
             client().uploader().destroy(publicId, Map.of("invalidate", true, "resource_type", "image"));
-        } catch (Exception e) {
+        } catch (Exception | LinkageError e) {
             // Ne bloque jamais l'opération métier : on journalise seulement.
             log.error("Échec de suppression Cloudinary de {}", publicId, e);
         }
@@ -74,7 +75,7 @@ public class CloudinaryImageStorageService implements ImageStorageService {
             return toStoredImage(result);
         } catch (ApiException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (Exception | LinkageError e) {
             log.error("Échec du déplacement Cloudinary de {} vers {}", publicId, target, e);
             throw new ApiException(HttpStatus.BAD_GATEWAY, UPLOAD_FAILED);
         }

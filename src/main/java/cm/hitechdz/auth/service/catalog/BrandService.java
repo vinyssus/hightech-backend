@@ -28,20 +28,24 @@ public class BrandService {
     static final String ALREADY_EXISTS = "Cette marque existe déjà.";
     static final String NAME_REQUIRED = "Le nom de la marque est obligatoire.";
     static final String EMPTY_SLUG = "Le nom de la marque doit contenir au moins une lettre ou un chiffre.";
+    static final String LOGO_HTTPS = "Le logo doit être une URL https.";
+    static final String LOGO_UNKNOWN = "Logo inconnu : envoyez-le d'abord via /api/admin/uploads/images.";
 
     private final BrandRepository brandRepository;
     private final ProductRepository productRepository;
     private final ProductSearchRepository searchRepository;
     private final ImageUploadService uploadService;
+    private final ImageStorageService storage;
     private final ApplicationEventPublisher events;
 
     public BrandService(BrandRepository brandRepository, ProductRepository productRepository,
                         ProductSearchRepository searchRepository, ImageUploadService uploadService,
-                        ApplicationEventPublisher events) {
+                        ImageStorageService storage, ApplicationEventPublisher events) {
         this.brandRepository = brandRepository;
         this.productRepository = productRepository;
         this.searchRepository = searchRepository;
         this.uploadService = uploadService;
+        this.storage = storage;
         this.events = events;
     }
 
@@ -62,6 +66,15 @@ public class BrandService {
 
     @Transactional
     public BrandDto create(String name, MultipartFile logo) {
+        return create(name, logo, null, null);
+    }
+
+    /**
+     * Création. Le logo peut arriver en fichier (multipart) ou en URL déjà envoyée
+     * (logoUrl + logoPublicId d'une image tmp, déplacée alors dans hitech-dz/brands).
+     */
+    @Transactional
+    public BrandDto create(String name, MultipartFile logo, String logoUrl, String logoPublicId) {
         String clean = requireName(name);
         if (brandRepository.findByNameKey(Brand.keyOf(clean)).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, ALREADY_EXISTS, Map.of("name", ALREADY_EXISTS));
@@ -76,8 +89,8 @@ public class BrandService {
         Brand b = new Brand();
         b.setName(clean);
         b.setSlug(slug);
-        if (logo != null && !logo.isEmpty()) {
-            StoredImage stored = uploadService.uploadOne(logo, ImageStorageService.BRANDS_FOLDER);
+        StoredImage stored = resolveLogo(logo, logoUrl, logoPublicId, null);
+        if (stored != null) {
             b.setLogoUrl(stored.url());
             b.setLogoPublicId(stored.publicId());
         }
@@ -88,6 +101,11 @@ public class BrandService {
     /** Renomme la marque (le slug ne change pas) et remplace le logo si un fichier est fourni. */
     @Transactional
     public BrandDto update(String slug, String name, MultipartFile logo) {
+        return update(slug, name, logo, null, null);
+    }
+
+    @Transactional
+    public BrandDto update(String slug, String name, MultipartFile logo, String logoUrl, String logoPublicId) {
         Brand b = load(slug);
         if (name != null && !name.isBlank()) {
             String clean = name.trim();
@@ -99,12 +117,14 @@ public class BrandService {
             b.setName(clean);
             productRepository.findByBrand(b).forEach(SearchText::refresh);
         }
-        if (logo != null && !logo.isEmpty()) {
+        StoredImage stored = resolveLogo(logo, logoUrl, logoPublicId, b.getLogoPublicId());
+        boolean unchanged = stored != null && stored.publicId() != null
+                && stored.publicId().equals(b.getLogoPublicId());
+        if (stored != null && !unchanged) {
             String oldPublicId = b.getLogoPublicId();
-            StoredImage stored = uploadService.uploadOne(logo, ImageStorageService.BRANDS_FOLDER);
             b.setLogoUrl(stored.url());
             b.setLogoPublicId(stored.publicId());
-            if (oldPublicId != null) {
+            if (oldPublicId != null && !oldPublicId.equals(stored.publicId())) {
                 events.publishEvent(new ImageDeletionRequested(List.of(oldPublicId)));
             }
         }
@@ -147,6 +167,32 @@ public class BrandService {
             b.setSlug(slug);
             return brandRepository.saveAndFlush(b);
         });
+    }
+
+    /**
+     * Logo à enregistrer : fichier envoyé, ou URL https (image tmp déplacée dans hitech-dz/brands,
+     * logo actuel conservé, ou URL externe). null = aucun changement.
+     */
+    private StoredImage resolveLogo(MultipartFile file, String url, String publicId, String currentPublicId) {
+        if (file != null && !file.isEmpty()) {
+            return uploadService.uploadOne(file, ImageStorageService.BRANDS_FOLDER);
+        }
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        if (!url.startsWith("https://")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, LOGO_HTTPS, Map.of("logo", LOGO_HTTPS));
+        }
+        if (publicId == null || publicId.isBlank()) {
+            return new StoredImage(url, null, null, null);   // URL externe
+        }
+        if (publicId.equals(currentPublicId)) {
+            return new StoredImage(url, publicId, null, null);   // logo inchangé
+        }
+        if (!ImageStorageService.isTmp(publicId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, LOGO_UNKNOWN, Map.of("logo", LOGO_UNKNOWN));
+        }
+        return storage.move(publicId, ImageStorageService.BRANDS_FOLDER);
     }
 
     private Brand load(String slug) {

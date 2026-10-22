@@ -28,12 +28,19 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        default_batch_fetch_size: 50   # évite le N+1 sur les images/marques des listes de produits
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 40MB
   flyway:
     enabled: true
     locations: classpath:db/migration
   jackson:
     serialization:
       write-dates-as-timestamps: false   # createdAt au format ISO-8601
+    deserialization:
+      accept-float-as-int: false         # « stock: 2.5 » est refusé au lieu d'être tronqué
     time-zone: UTC
   # Utilisé uniquement si MAIL_PROVIDER=smtp (ports SMTP bloqués sur l'offre gratuite de Render)
   mail:
@@ -73,6 +80,15 @@ app:
     from-name: ${MAIL_FROM_NAME:HITECH DZ}
     # API HTTP Brevo (MAIL_PROVIDER=brevo) : fonctionne même si les ports SMTP sont bloqués
     brevo-api-key: ${BREVO_API_KEY:}
+  cloudinary:
+    # Sans ces variables, l'application démarre mais les envois d'images renvoient 503.
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+  seed:
+    # Catalogue de démonstration (6 catégories, 10 marques, 12 produits) si le catalogue est vide.
+    # Toujours actif avec le profil « dev ».
+    catalog: ${SEED_CATALOG:false}
   admin:
     # Compte de démonstration créé au démarrage s'il n'existe pas.
     # Désactiver en production : ADMIN_SEED_ENABLED=false

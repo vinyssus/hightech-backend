@@ -14,11 +14,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -37,7 +39,16 @@ public class SecurityConfig {
             "/api/auth/refresh",
             "/api/auth/logout",
             "/api/auth/forgot-password",
-            "/api/auth/reset-password"
+            "/api/auth/reset-password",
+            "/api/cart/validate"
+    };
+
+    /** Catalogue public en lecture (les avis se publient connecté : POST non concerné). */
+    private static final String[] PUBLIC_GET_ENDPOINTS = {
+            "/api/products",
+            "/api/products/**",
+            "/api/categories",
+            "/api/brands"
     };
 
     @Bean
@@ -65,6 +76,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
@@ -78,6 +90,17 @@ public class SecurityConfig {
      * Coût BCrypt configurable (APP_SECURITY_BCRYPT_STRENGTH). 10 par défaut : sûr et adapté
      * aux petites instances. Les hash existants restent valides quel que soit leur coût.
      */
+    /**
+     * Autorise les « / » encodés (%2F) dans l'URL : nécessaire pour
+     * DELETE /api/admin/products/{id}/images/{publicId} (publicId = hitech-dz/products/slug/xxx).
+     */
+    @Bean
+    public WebSecurityCustomizer allowEncodedSlash() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedSlash(true);
+        return web -> web.httpFirewall(firewall);
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder(@Value("${app.security.bcrypt-strength:10}") int strength) {
         return new BCryptPasswordEncoder(strength);

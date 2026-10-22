@@ -166,3 +166,27 @@ for i in $(seq 1 11); do
     -d '{"email":"x@example.cm","password":"Faux1234"}'
 done
 ```
+
+## Catalogue (produits, catégories, marques, avis, favoris)
+
+Images hébergées sur **Cloudinary** (variables `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
+`CLOUDINARY_API_SECRET`). Sans elles, l'application démarre mais les envois d'images renvoient 503.
+Catalogue de démonstration : `SEED_CATALOG=true` (ou profil `dev`) sur une base vide.
+
+**Public** : `GET /api/products` (q, cat, brands, min, max, promo, rating, inStock, sort, page, size + `facets`),
+`GET /api/products/{slug}`, `/flash`, `/new`, `/best-sellers`, `/search?q=&limit=`, `GET /api/categories`,
+`GET /api/brands`, `GET /api/products/{slug}/reviews`, `POST /api/cart/validate`.
+
+**Client connecté** : `POST /api/products/{slug}/reviews`, `POST /api/reviews/{id}/helpful`,
+`GET|PUT|DELETE /api/me/favorites[/{productId}]`, `POST /api/me/favorites/merge`.
+
+**Admin** : `GET|POST /api/admin/products`, `GET /api/admin/products/{id}`, `/slug/{slug}`, `/low-stock`,
+`PUT|DELETE /api/admin/products/{id}`, `PUT /api/admin/products/{id}/variants` (`{ combinations: [...] }`),
+`POST /api/admin/uploads/images`, `POST /api/admin/products/{id}/images`,
+`DELETE /api/admin/products/{id}/images/{publicId encodé}`, `PUT /api/admin/products/{id}/images/order`,
+`GET|POST /api/admin/categories`, `PUT|DELETE /api/admin/categories/{slug}`,
+`GET|POST /api/admin/brands`, `PUT|DELETE /api/admin/brands/{slug}` (JSON ou multipart avec `logo`),
+`GET /api/admin/reviews`, `DELETE /api/admin/reviews/{id}`.
+
+Le stock est réservé par `InventoryService.reserve` (verrou `SELECT … FOR UPDATE`) ; le module Commandes
+appellera `confirmPayment`, `failPayment`, `cancel` et `markDelivered`.

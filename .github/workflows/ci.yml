@@ -28,3 +28,9 @@ jobs:
           } > summary.txt || true
           msg=$(sed -e 's/%/%25/g' summary.txt | head -c 60000 | sed -e ':a;N;$!ba;s/\n/%0A/g')
           echo "::error title=Build::${msg}"
+      - name: Bilan des tests
+        if: always()
+        run: |
+          msg=$(grep -E "Tests run:" build.log | grep -v "Time elapsed" | tail -n 1)
+          per=$(grep -E "Tests run:.*in cm\." build.log | sed -E 's/.*Tests run: ([0-9]+).* in (.*)/\2: \1/' | sed -e ':a;N;$!ba;s/\n/%0A/g')
+          echo "::notice title=Tests::${msg}%0A${per}"

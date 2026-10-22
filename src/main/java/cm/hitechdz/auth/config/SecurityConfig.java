@@ -1,5 +1,6 @@
 package cm.hitechdz.auth.config;
 
+import cm.hitechdz.auth.repository.UserRepository;
 import cm.hitechdz.auth.security.JsonAccessDeniedHandler;
 import cm.hitechdz.auth.security.JsonAuthenticationEntryPoint;
 import cm.hitechdz.auth.security.JwtAuthenticationFilter;
@@ -44,10 +45,11 @@ public class SecurityConfig {
                                                    JwtService jwtService,
                                                    RateLimiter rateLimiter,
                                                    ObjectMapper objectMapper,
-                                                   AppProperties props) throws Exception {
+                                                   AppProperties props,
+                                                   UserRepository userRepository) throws Exception {
         // Les filtres sont instanciés ici (et non en @Component) pour éviter
         // qu'ils soient enregistrés une seconde fois dans la chaîne servlet.
-        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService);
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService, userRepository);
         RateLimitFilter rateLimitFilter = new RateLimitFilter(rateLimiter, objectMapper, props.rateLimit());
 
         http

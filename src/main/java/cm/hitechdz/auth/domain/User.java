@@ -45,6 +45,10 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CUSTOMER;
 
+    /** false = compte bloqué par un administrateur (connexion et sessions refusées). */
+    @Column(nullable = false)
+    private boolean enabled = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -85,6 +89,9 @@ public class User {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

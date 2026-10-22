@@ -27,6 +27,8 @@ public class JsonAuthenticationEntryPoint implements AuthenticationEntryPoint {
         String message;
         if (JwtAuthenticationFilter.TOKEN_EXPIRED.equals(tokenError)) {
             message = "Votre session a expiré. Veuillez vous reconnecter.";
+        } else if (JwtAuthenticationFilter.ACCOUNT_DISABLED.equals(tokenError)) {
+            message = "Votre compte a été désactivé. Contactez le support.";
         } else if (JwtAuthenticationFilter.TOKEN_INVALID.equals(tokenError)) {
             message = "Jeton d'authentification invalide.";
         } else {

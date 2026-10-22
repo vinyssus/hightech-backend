@@ -225,7 +225,8 @@ class AuthFlowIntegrationTest {
                 .andExpect(jsonPath("$.user.role").value("ADMIN")));
         mvc.perform(get("/api/admin/users").header("Authorization", "Bearer " + admin.get("accessToken").asText()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2));
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].enabled").value(true));
     }
 
     @Test @Order(10)
@@ -249,5 +250,109 @@ class AuthFlowIntegrationTest {
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:8080"));
+    }
+
+    @Test @Order(12)
+    void admin_user_management() throws Exception {
+        JsonNode adminLogin = body(send(post("/api/auth/login"), """
+                {"email":"admin@hitech-dz.cm","password":"Admin123"}""").andExpect(status().isOk()));
+        String admin = "Bearer " + adminLogin.get("accessToken").asText();
+        String adminId = adminLogin.get("user").get("id").asText();
+
+        JsonNode jeanLogin = body(send(post("/api/auth/login"), """
+                {"email":"jean.mbarga@example.cm","password":"Reset1234"}""").andExpect(status().isOk()));
+        String jean = "Bearer " + jeanLogin.get("accessToken").asText();
+        String jeanRefresh = jeanLogin.get("refreshToken").asText();
+
+        // Statistiques
+        mvc.perform(get("/api/admin/stats").header("Authorization", admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalUsers").value(2))
+                .andExpect(jsonPath("$.customers").value(1))
+                .andExpect(jsonPath("$.admins").value(1))
+                .andExpect(jsonPath("$.blockedUsers").value(0))
+                .andExpect(jsonPath("$.newUsersLast7Days").value(2));
+        mvc.perform(get("/api/admin/stats").header("Authorization", jean))
+                .andExpect(status().isForbidden());
+
+        // Recherche, filtres, pagination, tri
+        JsonNode found = body(mvc.perform(get("/api/admin/users").param("search", "jean-paul mbar")
+                        .header("Authorization", admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].email").value("jean.mbarga@example.cm")));
+        String jeanId = found.get("content").get(0).get("id").asText();
+
+        mvc.perform(get("/api/admin/users").param("role", "ADMIN").header("Authorization", admin))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/admin/users").param("size", "1").param("sort", "email,asc").header("Authorization", admin))
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].email").value("admin@hitech-dz.cm"))
+                .andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(get("/api/admin/users").param("sort", "passwordHash").header("Authorization", admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/admin/users").param("role", "ROI").header("Authorization", admin))
+                .andExpect(status().isBadRequest());
+
+        // Détail, id inconnu, id invalide
+        mvc.perform(get("/api/admin/users/" + jeanId).header("Authorization", admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("CUSTOMER"));
+        mvc.perform(get("/api/admin/users/00000000-0000-0000-0000-000000000000").header("Authorization", admin))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Utilisateur introuvable."));
+        mvc.perform(get("/api/admin/users/pas-un-uuid").header("Authorization", admin))
+                .andExpect(status().isBadRequest());
+
+        // Pas d'action sur son propre compte
+        send(put("/api/admin/users/" + adminId + "/role").header("Authorization", admin), "{\"role\":\"CUSTOMER\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Vous ne pouvez pas effectuer cette action sur votre propre compte."));
+        mvc.perform(delete("/api/admin/users/" + adminId).header("Authorization", admin))
+                .andExpect(status().isBadRequest());
+
+        // Blocage : connexion refusée, access token et refresh token inutilisables immédiatement
+        send(put("/api/admin/users/" + jeanId + "/status").header("Authorization", admin), "{\"enabled\":false}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false));
+        mvc.perform(get("/api/auth/me").header("Authorization", jean))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Votre compte a été désactivé. Contactez le support."));
+        send(post("/api/auth/refresh"), "{\"refreshToken\":\"" + jeanRefresh + "\"}")
+                .andExpect(status().isUnauthorized());
+        send(post("/api/auth/login"), """
+                {"email":"jean.mbarga@example.cm","password":"Reset1234"}""")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Votre compte a été désactivé. Contactez le support."));
+        mvc.perform(get("/api/admin/stats").header("Authorization", admin))
+                .andExpect(jsonPath("$.blockedUsers").value(1));
+
+        // Déblocage
+        send(put("/api/admin/users/" + jeanId + "/status").header("Authorization", admin), "{\"enabled\":true}")
+                .andExpect(status().isOk());
+        String jean2 = "Bearer " + body(send(post("/api/auth/login"), """
+                {"email":"jean.mbarga@example.cm","password":"Reset1234"}""").andExpect(status().isOk()))
+                .get("accessToken").asText();
+
+        // Promotion : effet immédiat avec le même access token
+        send(put("/api/admin/users/" + jeanId + "/role").header("Authorization", admin), "{\"role\":\"ADMIN\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ADMIN"));
+        mvc.perform(get("/api/admin/ping").header("Authorization", jean2)).andExpect(status().isOk());
+
+        // Rétrogradation : accès admin retiré immédiatement
+        send(put("/api/admin/users/" + jeanId + "/role").header("Authorization", admin), "{\"role\":\"CUSTOMER\"}")
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/ping").header("Authorization", jean2)).andExpect(status().isForbidden());
+
+        // Validation du corps
+        send(put("/api/admin/users/" + jeanId + "/role").header("Authorization", admin), "{}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.role").exists());
+
+        // Suppression
+        mvc.perform(delete("/api/admin/users/" + jeanId).header("Authorization", admin))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/admin/users/" + jeanId).header("Authorization", admin))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/auth/me").header("Authorization", jean2))
+                .andExpect(status().isUnauthorized());
     }
 }

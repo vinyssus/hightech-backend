@@ -77,6 +77,10 @@ public class RefreshTokenService {
         if (current.isExpired(Instant.now())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, INVALID_SESSION);
         }
+        if (!current.getUser().isEnabled()) {
+            current.revoke();
+            throw new ApiException(HttpStatus.UNAUTHORIZED, INVALID_SESSION);
+        }
 
         current.revoke();
         User user = current.getUser();

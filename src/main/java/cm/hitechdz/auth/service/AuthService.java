@@ -37,6 +37,7 @@ public class AuthService {
     static final String WRONG_CURRENT_PASSWORD = "Mot de passe actuel incorrect.";
     static final String SAME_PASSWORD = "Le nouveau mot de passe doit être différent de l'actuel.";
     static final String USER_NOT_FOUND = "Utilisateur introuvable. Veuillez vous reconnecter.";
+    static final String ACCOUNT_DISABLED = "Votre compte a été désactivé. Contactez le support.";
 
     private final UserRepository userRepository;
     private final PasswordResetCodeRepository resetCodeRepository;
@@ -98,6 +99,10 @@ public class AuthService {
         }
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, BAD_CREDENTIALS);
+        }
+        // Vérifié après le mot de passe : on ne révèle pas le blocage à quelqu'un qui ne le connaît pas
+        if (!user.isEnabled()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, ACCOUNT_DISABLED);
         }
         return buildAuthResponse(user, req.remember());
     }

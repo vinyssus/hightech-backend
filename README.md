@@ -138,6 +138,27 @@ ADMIN=$(curl -s -X POST $API/auth/login -H 'Content-Type: application/json' \
 curl -s $API/admin/users -H "Authorization: Bearer $ADMIN"
 ```
 
+**Administration des utilisateurs** (rôle ADMIN requis)
+
+| Méthode & route | Description |
+|---|---|
+| `GET /api/admin/stats` | `{ totalUsers, customers, admins, blockedUsers, newUsersLast7Days, newUsersLast30Days }` |
+| `GET /api/admin/users?search=&role=&enabled=&page=0&size=20&sort=createdAt,desc` | Liste paginée `{ content, page, size, totalElements, totalPages }` |
+| `GET /api/admin/users/{id}` | Détail (`enabled` inclus) |
+| `PUT /api/admin/users/{id}/role` | `{ "role": "ADMIN" \| "CUSTOMER" }` |
+| `PUT /api/admin/users/{id}/status` | `{ "enabled": false }` bloque, `true` débloque |
+| `DELETE /api/admin/users/{id}` | 204 |
+
+Garde-fous : pas d'action sur son propre compte (400), jamais zéro administrateur actif (409).
+Un compte bloqué reçoit 403 à la connexion ; blocage, rétrogradation et suppression prennent effet
+immédiatement (le compte est relu en base à chaque requête authentifiée, sessions révoquées).
+
+```bash
+curl -s "$API/admin/users?search=mbarga" -H "Authorization: Bearer $ADMIN"
+curl -s -X PUT $API/admin/users/<id>/status -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"enabled":false}'
+```
+
 **Rate limiting** — la 11ᵉ tentative en moins d'une minute renvoie 429
 ```bash
 for i in $(seq 1 11); do

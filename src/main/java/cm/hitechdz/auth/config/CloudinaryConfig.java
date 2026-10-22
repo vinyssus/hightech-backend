@@ -20,19 +20,27 @@ public class CloudinaryConfig {
     private static final Logger log = LoggerFactory.getLogger(CloudinaryConfig.class);
 
     @Bean
-    @ConditionalOnExpression("!'${app.cloudinary.cloud-name:}'.isBlank()")
-    public Cloudinary cloudinary(@Value("${app.cloudinary.cloud-name}") String cloudName,
+    @ConditionalOnExpression("!'${app.cloudinary.cloud-name:}'.isBlank() or !'${app.cloudinary.url:}'.isBlank()")
+    public Cloudinary cloudinary(@Value("${app.cloudinary.url:}") String url,
+                                 @Value("${app.cloudinary.cloud-name:}") String cloudName,
                                  @Value("${app.cloudinary.api-key:}") String apiKey,
                                  @Value("${app.cloudinary.api-secret:}") String apiSecret) {
-        if (apiKey.isBlank() || apiSecret.isBlank()) {
-            throw new IllegalStateException(
-                    "CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET sont obligatoires avec CLOUDINARY_CLOUD_NAME.");
+        Cloudinary cloudinary;
+        if (!url.isBlank()) {
+            cloudinary = new Cloudinary(url.trim());
+            cloudinary.config.secure = true;
+        } else {
+            if (apiKey.isBlank() || apiSecret.isBlank()) {
+                throw new IllegalStateException(
+                        "CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET sont obligatoires avec CLOUDINARY_CLOUD_NAME.");
+            }
+            cloudinary = new Cloudinary(Map.of(
+                    "cloud_name", cloudName.trim(),
+                    "api_key", apiKey.trim(),
+                    "api_secret", apiSecret.trim(),
+                    "secure", true));
         }
-        log.info("Stockage d'images Cloudinary activé (cloud : {})", cloudName);
-        return new Cloudinary(Map.of(
-                "cloud_name", cloudName,
-                "api_key", apiKey,
-                "api_secret", apiSecret,
-                "secure", true));
+        log.info("Stockage d'images Cloudinary activé (cloud : {})", cloudinary.config.cloudName);
+        return cloudinary;
     }
 }

@@ -23,7 +23,7 @@ public class CloudinaryImageStorageService implements ImageStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(CloudinaryImageStorageService.class);
     static final String NOT_CONFIGURED = "Le stockage d'images n'est pas configuré sur le serveur.";
-    static final String UPLOAD_FAILED = "L'envoi de l'image a échoué. Veuillez réessayer.";
+    static final String UPLOAD_FAILED = "L'envoi de l'image a échoué. Réessayez.";
 
     private final ObjectProvider<Cloudinary> cloudinaryProvider;
 

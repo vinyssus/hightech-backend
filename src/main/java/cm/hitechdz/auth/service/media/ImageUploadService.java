@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Validation des fichiers image avant envoi : JPEG, PNG ou WebP (vérifiés par leur signature binaire,
@@ -21,10 +23,17 @@ public class ImageUploadService {
     public static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     public static final int MAX_IMAGES_PER_PRODUCT = 8;
 
-    static final String NO_FILE = "Aucun fichier reçu.";
-    static final String BAD_TYPE = "Format non accepté : seules les images JPEG, PNG ou WebP sont autorisées.";
-    static final String TOO_BIG = "Fichier trop volumineux : 5 Mo maximum par image.";
-    static final String TOO_MANY = "8 images maximum par produit.";
+    public static final int MAX_FILES_PER_REQUEST = 8;
+
+    public static final String NO_FILE = "Aucun fichier reçu.";
+    public static final String BAD_TYPE = "Format non supporté (JPEG, PNG ou WebP).";
+    public static final String TOO_BIG = "L'image dépasse 5 Mo.";
+    public static final String TOO_MANY_PER_REQUEST = "8 images maximum par envoi.";
+    public static final String TOO_MANY = "8 images maximum par produit.";
+
+    private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/webp");
+    /** Types envoyés par certains navigateurs quand ils ne reconnaissent pas le fichier : on se fie alors aux octets. */
+    private static final Set<String> GENERIC_TYPES = Set.of("", "application/octet-stream");
 
     private final ImageStorageService storage;
 
@@ -36,6 +45,9 @@ public class ImageUploadService {
     public List<StoredImage> uploadAll(List<MultipartFile> files, String folder, int alreadyAttached) {
         if (files == null || files.isEmpty() || files.stream().allMatch(MultipartFile::isEmpty)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, NO_FILE, Map.of("files", NO_FILE));
+        }
+        if (files.size() > MAX_FILES_PER_REQUEST) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, TOO_MANY_PER_REQUEST, Map.of("files", TOO_MANY_PER_REQUEST));
         }
         if (alreadyAttached + files.size() > MAX_IMAGES_PER_PRODUCT) {
             throw new ApiException(HttpStatus.BAD_REQUEST, TOO_MANY, Map.of("files", TOO_MANY));
@@ -60,6 +72,10 @@ public class ImageUploadService {
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new ApiException(HttpStatus.BAD_REQUEST, TOO_BIG, Map.of("files", TOO_BIG));
+        }
+        String type = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT).trim();
+        if (!ALLOWED_TYPES.contains(type) && !GENERIC_TYPES.contains(type)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, BAD_TYPE, Map.of("files", BAD_TYPE));
         }
         if (!hasImageSignature(file)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, BAD_TYPE, Map.of("files", BAD_TYPE));

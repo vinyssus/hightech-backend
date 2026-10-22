@@ -62,7 +62,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex) {
-        String msg = "Fichier trop volumineux : 5 Mo maximum par image (40 Mo par envoi).";
+        String msg = "L'image dépasse 5 Mo.";
         return ResponseEntity.badRequest().body(new ErrorResponse(msg, Map.of("files", msg)));
     }
 

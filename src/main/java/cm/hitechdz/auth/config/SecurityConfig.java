@@ -109,7 +109,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(props.cors().allowedOrigins());
+        // Motifs acceptés : une origine exacte ou un joker (ex. https://*.lovable.app pour les prévisualisations)
+        config.setAllowedOriginPatterns(props.cors().allowedOrigins().stream().map(String::trim).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         config.setExposedHeaders(List.of("Retry-After"));

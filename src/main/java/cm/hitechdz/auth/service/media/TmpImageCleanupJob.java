@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 
-/** Purge quotidienne des images envoyées dans le dossier tmp et jamais rattachées à un produit. */
+/** Purge quotidienne des images envoyées (dossier tmp ou racine des produits) jamais rattachées à un produit. */
 @Component
 public class TmpImageCleanupJob {
 
@@ -27,8 +27,8 @@ public class TmpImageCleanupJob {
     public void purge() {
         Instant before = Instant.now().minus(Duration.ofHours(24));
         int deleted = 0;
-        for (String publicId : storage.listOlderThan(ImageStorageService.TMP_FOLDER, before)) {
-            if (!imageRepository.existsByPublicId(publicId)) {
+        for (String publicId : storage.listOlderThan(ImageStorageService.PRODUCTS_FOLDER, before)) {
+            if (ImageStorageService.isPending(publicId) && !imageRepository.existsByPublicId(publicId)) {
                 storage.delete(publicId);
                 deleted++;
             }

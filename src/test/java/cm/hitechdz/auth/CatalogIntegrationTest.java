@@ -407,12 +407,12 @@ class CatalogIntegrationTest {
                 "pas une image".getBytes(StandardCharsets.UTF_8));
         mvc.perform(multipart("/api/admin/uploads/images").file(text).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Format non accepté : seules les images JPEG, PNG ou WebP sont autorisées."));
+                .andExpect(jsonPath("$.message").value("Format non supporté (JPEG, PNG ou WebP)."));
 
         MockMultipartFile huge = new MockMultipartFile("files", "big.png", "image/png", png(6 * 1024 * 1024));
         mvc.perform(multipart("/api/admin/uploads/images").file(huge).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Fichier trop volumineux : 5 Mo maximum par image."));
+                .andExpect(jsonPath("$.message").value("L'image dépasse 5 Mo."));
         verify(storage, never()).upload(any(), anyString());
 
         MockMultipartFile ok = new MockMultipartFile("files", "routeur.png", "image/png", png(2048));

@@ -185,6 +185,13 @@ public class ProductAdminService {
                 .toList();
     }
 
+    /** Envoi d'images pour le formulaire produit (POST /api/admin/uploads) : URLs dans l'ordre des fichiers. */
+    public List<String> uploadForForm(List<MultipartFile> files) {
+        return uploadService.uploadAll(files, ImageStorageService.PRODUCTS_FOLDER, 0).stream()
+                .map(s -> CatalogMapper.deliveryUrl(s.url()))
+                .toList();
+    }
+
     @Transactional
     public AdminProduct addImages(String id, List<MultipartFile> files) {
         Product p = load(id);
@@ -314,7 +321,7 @@ public class ProductAdminService {
                     break;
                 }
                 String pid = img.publicId();
-                if (pid != null && !pid.isBlank() && !ImageStorageService.isTmp(pid) && !ownPublicIds.contains(pid)) {
+                if (pid != null && !pid.isBlank() && !ImageStorageService.isPending(pid) && !ownPublicIds.contains(pid)) {
                     errors.put("images", IMAGE_UNKNOWN);
                     break;
                 }
@@ -369,11 +376,11 @@ public class ProductAdminService {
         List<ProductImage> next = new ArrayList<>();
         Set<ProductImage> kept = new HashSet<>();
         for (ImageInput in : inputs) {
-            String pid = in.publicId() == null || in.publicId().isBlank() ? null : in.publicId();
+            String pid = effectivePublicId(in, byPublicId.keySet());
             ProductImage image;
             if (pid != null && byPublicId.containsKey(pid)) {
                 image = byPublicId.get(pid);
-            } else if (pid != null) {   // image tmp (vérifié par validate)
+            } else if (pid != null) {   // image envoyée, pas encore rattachée (vérifié par validate)
                 StoredImage moved = storage.move(pid, folder);
                 image = new ProductImage(moved.url(), moved.publicId(), moved.width(), moved.height());
             } else if (externalByUrl.containsKey(in.url())) {
@@ -393,6 +400,22 @@ public class ProductAdminService {
         p.getImages().clear();
         next.forEach(p::addImage);
         return removed;
+    }
+
+    /**
+     * publicId à utiliser pour une image reçue : celui envoyé, sinon celui déduit de l'URL Cloudinary
+     * (le frontend peut n'envoyer que l'URL renvoyée par /api/admin/uploads). Une URL d'un autre
+     * dossier est traitée comme une URL externe.
+     */
+    private static String effectivePublicId(ImageInput in, Set<String> own) {
+        if (in.publicId() != null && !in.publicId().isBlank()) {
+            return in.publicId();
+        }
+        String fromUrl = ImageStorageService.publicIdFromUrl(in.url());
+        if (fromUrl != null && (own.contains(fromUrl) || ImageStorageService.isPending(fromUrl))) {
+            return fromUrl;
+        }
+        return null;
     }
 
     /** Slug unique : suffixe -2, -3… en cas de doublon ; produit-{id} si le nom ne donne aucun slug. */

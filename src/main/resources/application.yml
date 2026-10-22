@@ -5,7 +5,7 @@
 # =====================================================================
 server:
   # Le frontend React tourne sur 8080 en dev : le backend écoute sur 8081 par défaut.
-  port: ${SERVER_PORT:8081}
+  port: ${PORT:8081}
   # Mettre "native" ou "framework" derrière un reverse proxy (nginx...) pour que
   # le rate limiting voie la vraie IP du client (X-Forwarded-For).
   forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
@@ -49,7 +49,7 @@ app:
   jwt:
     # Clé HMAC encodée en Base64, au moins 32 octets (256 bits).
     # Générer avec : openssl rand -base64 48
-    secret: ${JWT_SECRET:nMnje6E6JCrqDR6rRbFJd+MdYr6+ZZ96bbjAueYnwmVtATY7LdQpexkDdXaRWf9S}
+    secret: ${JWT_SECRET}
     issuer: hitech-dz
     access-token-ttl: ${JWT_ACCESS_TTL:15m}
     refresh-token-ttl-remember: ${JWT_REFRESH_TTL_REMEMBER:30d}

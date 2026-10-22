@@ -88,40 +88,40 @@ public class CatalogSeeder implements ApplicationRunner {
         }
 
         Product hp = product("HP Pavilion 15 Core i5 16 Go", brands.get("HP"), cats.get("ordinateurs"),
-                425_000, 465_000, 14, 37, false, "Ordinateur portable polyvalent pour le travail et les études.",
+                425_000, 465_000L, 14, 37, false, "Ordinateur portable polyvalent pour le travail et les études.",
                 Map.of("Processeur", "Intel Core i5-1335U", "RAM", "16 Go", "Stockage", "SSD 512 Go", "Écran", "15,6\" Full HD"));
         Product dell = product("Dell Latitude 5440", brands.get("Dell"), cats.get("ordinateurs"),
                 610_000, null, 6, 12, false, "Portable professionnel robuste, idéal pour l'entreprise.",
                 Map.of("Processeur", "Intel Core i7-1355U", "RAM", "16 Go", "Stockage", "SSD 512 Go"));
         Product lenovo = product("Lenovo IdeaPad Slim 3", brands.get("Lenovo"), cats.get("ordinateurs"),
-                315_000, 350_000, 3, 21, true, "Léger et autonome, parfait pour les étudiants.",
+                315_000, 350_000L, 3, 21, true, "Léger et autonome, parfait pour les étudiants.",
                 Map.of("Processeur", "AMD Ryzen 5 7520U", "RAM", "8 Go", "Stockage", "SSD 256 Go"));
         Product galaxy = product("Samsung Galaxy A55 5G", brands.get("Samsung"), cats.get("smartphones"),
-                285_000, 310_000, 0, 58, true, "Écran Super AMOLED 120 Hz et triple capteur photo.",
+                285_000, 310_000L, 0, 58, true, "Écran Super AMOLED 120 Hz et triple capteur photo.",
                 Map.of("Écran", "6,6\" Super AMOLED", "Batterie", "5000 mAh", "Réseau", "5G"));
         Product iphone = product("Apple iPhone 15", brands.get("Apple"), cats.get("smartphones"),
                 650_000, null, 0, 44, true, "Dynamic Island, appareil photo 48 Mpx et USB-C.",
                 Map.of("Écran", "6,1\" Super Retina XDR", "Puce", "A16 Bionic", "Connecteur", "USB-C"));
         Product tecno = product("Tecno Camon 30", brands.get("Tecno"), cats.get("smartphones"),
-                145_000, 160_000, 25, 96, false, "Grand écran et excellente autonomie à petit prix.",
+                145_000, 160_000L, 25, 96, false, "Grand écran et excellente autonomie à petit prix.",
                 Map.of("Écran", "6,78\" AMOLED", "Batterie", "5000 mAh", "Stockage", "256 Go"));
         Product jbl = product("JBL Tune 520BT Écouteurs sans fil", brands.get("JBL"), cats.get("accessoires"),
-                32_000, 38_000, 40, 132, false, "Casque Bluetooth léger, jusqu'à 57 h d'autonomie.",
+                32_000, 38_000L, 40, 132, false, "Casque Bluetooth léger, jusqu'à 57 h d'autonomie.",
                 Map.of("Connexion", "Bluetooth 5.3", "Autonomie", "57 h"));
         Product mouse = product("Logitech MX Master 3S", brands.get("Logitech"), cats.get("accessoires"),
                 68_000, null, 4, 29, false, "Souris ergonomique silencieuse, défilement ultra-rapide.",
                 Map.of("Connexion", "Bluetooth / Logi Bolt", "Capteur", "8000 DPI"));
         Product router = product("TP-Link Archer AX55 Wi-Fi 6", brands.get("TP-Link"), cats.get("reseau"),
-                55_000, 62_000, 18, 41, false, "Routeur Wi-Fi 6 double bande jusqu'à 3 Gbit/s.",
+                55_000, 62_000L, 18, 41, false, "Routeur Wi-Fi 6 double bande jusqu'à 3 Gbit/s.",
                 Map.of("Norme", "Wi-Fi 6 (802.11ax)", "Débit", "AX3000", "Ports", "4 x Gigabit"));
         Product tv = product("Samsung Smart TV Crystal UHD 55\"", brands.get("Samsung"), cats.get("electronique"),
-                395_000, 450_000, 7, 18, true, "Téléviseur 4K avec Tizen et HDR.",
+                395_000, 450_000L, 7, 18, true, "Téléviseur 4K avec Tizen et HDR.",
                 Map.of("Taille", "55 pouces", "Résolution", "4K UHD", "Système", "Tizen"));
         Product ps5 = product("Sony PlayStation 5 Slim", brands.get("Sony"), cats.get("electronique"),
                 420_000, null, 2, 27, true, "La console nouvelle génération, version Slim avec lecteur.",
                 Map.of("Stockage", "1 To SSD", "Résolution", "Jusqu'à 4K 120 Hz"));
         Product ssd = product("Samsung SSD 990 PRO 1 To", brands.get("Samsung"), cats.get("stockage"),
-                95_000, 110_000, 22, 35, false, "SSD NVMe PCIe 4.0 ultra-rapide jusqu'à 7450 Mo/s.",
+                95_000, 110_000L, 22, 35, false, "SSD NVMe PCIe 4.0 ultra-rapide jusqu'à 7450 Mo/s.",
                 Map.of("Interface", "PCIe 4.0 NVMe", "Lecture", "7450 Mo/s", "Format", "M.2 2280"));
 
         // Variantes : couleur × capacité pour le Galaxy, couleur × capacité pour l'iPhone

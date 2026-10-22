@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -187,8 +188,8 @@ class UploadAdminControllerTest {
     @Test
     void cloudinary_failure_gives_502() throws Exception {
         String admin = token("admin@hitech-dz.cm", false);
-        when(storage.upload(any(), anyString()))
-                .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "L'envoi de l'image a échoué. Réessayez."));
+        doThrow(new ApiException(HttpStatus.BAD_GATEWAY, "L'envoi de l'image a échoué. Réessayez."))
+                .when(storage).upload(any(), anyString());
         mvc.perform(upload(admin, file("a.png", "image/png", png(100))))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.message").value("L'envoi de l'image a échoué. Réessayez."));

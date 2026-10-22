@@ -7,6 +7,7 @@ import cm.hitechdz.auth.security.JwtService;
 import cm.hitechdz.auth.security.RateLimitFilter;
 import cm.hitechdz.auth.security.RateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -71,9 +72,13 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Coût BCrypt configurable (APP_SECURITY_BCRYPT_STRENGTH). 10 par défaut : sûr et adapté
+     * aux petites instances. Les hash existants restent valides quel que soit leur coût.
+     */
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+    public PasswordEncoder passwordEncoder(@Value("${app.security.bcrypt-strength:10}") int strength) {
+        return new BCryptPasswordEncoder(strength);
     }
 
     @Bean

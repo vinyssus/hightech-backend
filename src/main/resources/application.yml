@@ -35,7 +35,7 @@ spring:
     serialization:
       write-dates-as-timestamps: false   # createdAt au format ISO-8601
     time-zone: UTC
-  # Utilisé uniquement si MAIL_PROVIDER=smtp
+  # Utilisé uniquement si MAIL_PROVIDER=smtp (ports SMTP bloqués sur l'offre gratuite de Render)
   mail:
     host: ${SMTP_HOST:}
     port: ${SMTP_PORT:587}
@@ -68,8 +68,11 @@ app:
       max-requests: ${RATE_LIMIT_FORGOT_MAX:5}
       window: ${RATE_LIMIT_FORGOT_WINDOW:15m}
   mail:
-    provider: ${MAIL_PROVIDER:console}   # console | smtp
+    provider: ${MAIL_PROVIDER:console}   # console | smtp | brevo
     from: ${MAIL_FROM:no-reply@hitech-dz.cm}
+    from-name: ${MAIL_FROM_NAME:HITECH DZ}
+    # API HTTP Brevo (MAIL_PROVIDER=brevo) : fonctionne même si les ports SMTP sont bloqués
+    brevo-api-key: ${BREVO_API_KEY:}
   admin:
     # Compte de démonstration créé au démarrage s'il n'existe pas.
     # Désactiver en production : ADMIN_SEED_ENABLED=false

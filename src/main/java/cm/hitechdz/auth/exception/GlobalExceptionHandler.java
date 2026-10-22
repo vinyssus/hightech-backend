@@ -15,6 +15,11 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -55,6 +60,30 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("Paramètre invalide : " + ex.getName() + "."));
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex) {
+        String msg = "Fichier trop volumineux : 5 Mo maximum par image (40 Mo par envoi).";
+        return ResponseEntity.badRequest().body(new ErrorResponse(msg, Map.of("files", msg)));
+    }
+
+    @ExceptionHandler({MissingServletRequestPartException.class, MultipartException.class})
+    public ResponseEntity<ErrorResponse> handleMultipart(Exception ex) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of("Envoi de fichier invalide ou incomplet."));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("Paramètre manquant : " + ex.getParameterName() + "."));
+    }
+
+    /** Deux modifications simultanées du même enregistrement (verrou optimiste @Version). */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("Cet élément a été modifié entre-temps. Rechargez puis réessayez."));
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMediaType(HttpMediaTypeNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
@@ -79,6 +108,13 @@ public class GlobalExceptionHandler {
         if (detail.contains("uk_users_email")) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(ErrorResponse.of("Un compte existe déjà avec cette adresse e-mail."));
+        }
+        if (detail.contains("uk_product_variants_sku")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of("Ce SKU est déjà utilisé."));
+        }
+        if (detail.contains("uk_brands") || detail.contains("uk_categories") || detail.contains("uk_products_slug")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of("Un élément portant ce nom existe déjà. Réessayez."));
         }
         log.error("Violation d'intégrité", ex);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of("Conflit de données."));

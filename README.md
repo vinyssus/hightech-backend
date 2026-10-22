@@ -182,7 +182,7 @@ Catalogue de démonstration : `SEED_CATALOG=true` (ou profil `dev`) sur une base
 
 **Admin** : `GET|POST /api/admin/products`, `GET /api/admin/products/{id}`, `/slug/{slug}`, `/low-stock`,
 `PUT|DELETE /api/admin/products/{id}`, `PUT /api/admin/products/{id}/variants` (`{ combinations: [...] }`),
-`POST /api/admin/uploads/images`, `POST /api/admin/products/{id}/images`,
+`POST /api/admin/uploads` (champ `files` → `{ urls }`), `POST /api/admin/uploads/images`, `POST /api/admin/products/{id}/images`,
 `DELETE /api/admin/products/{id}/images/{publicId encodé}`, `PUT /api/admin/products/{id}/images/order`,
 `GET|POST /api/admin/categories`, `PUT|DELETE /api/admin/categories/{slug}`,
 `GET|POST /api/admin/brands`, `PUT|DELETE /api/admin/brands/{slug}` (JSON ou multipart avec `logo`),

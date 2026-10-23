@@ -9,6 +9,8 @@ import cm.hitechdz.auth.security.RateLimitFilter;
 import cm.hitechdz.auth.security.RateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,11 +29,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.time.Duration;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             "/api/auth/register",
@@ -106,11 +112,20 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(strength);
     }
 
+    /**
+     * Origines du frontend toujours autorisées, en plus de CORS_ALLOWED_ORIGINS :
+     * une variable d'environnement incomplète ou obsolète ne peut plus bloquer le site.
+     */
+    static final List<String> FRONTEND_ORIGINS = List.of(
+            "https://hitech-momo-market.lovable.app",
+            "https://id-preview--f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovable.app",
+            "https://f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovableproject.com"
+    );
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration config = new CorsConfiguration();
-        // Motifs acceptés : une origine exacte ou un joker (ex. https://*.lovable.app pour les prévisualisations)
-        config.setAllowedOriginPatterns(props.cors().allowedOrigins().stream().map(String::trim).toList());
+        config.setAllowedOriginPatterns(allowedOrigins(props.cors().allowedOrigins()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         config.setExposedHeaders(List.of("Retry-After"));
@@ -121,4 +136,31 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
+    /**
+     * Normalise la liste : espaces et « / » final retirés (« https://site.app/ » ne correspondrait jamais
+     * à l'en-tête Origin), doublons supprimés, « * » refusé (incompatible avec les credentials).
+     * Les motifs restent possibles (ex. https://*.lovable.app).
+     */
+    static List<String> allowedOrigins(List<String> configured) {
+        Set<String> origins = new LinkedHashSet<>(FRONTEND_ORIGINS);
+        if (configured != null) {
+            for (String raw : configured) {
+                if (raw == null) continue;
+                String origin = raw.trim();
+                while (origin.endsWith("/")) {
+                    origin = origin.substring(0, origin.length() - 1);
+                }
+                if (origin.isEmpty()) continue;
+                if (origin.equals("*")) {
+                    log.warn("CORS : « * » ignoré dans CORS_ALLOWED_ORIGINS (interdit avec les credentials)");
+                    continue;
+                }
+                origins.add(origin);
+            }
+        }
+        log.info("CORS : origines autorisées {}", origins);
+        return List.copyOf(origins);
+    }
+
 }

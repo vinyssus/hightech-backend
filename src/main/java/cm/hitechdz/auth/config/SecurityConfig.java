@@ -119,7 +119,8 @@ public class SecurityConfig {
     static final List<String> FRONTEND_ORIGINS = List.of(
             "https://hitech-momo-market.lovable.app",
             "https://id-preview--f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovable.app",
-            "https://f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovableproject.com"
+            "https://f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovableproject.com",
+            "https://hitech-dz-commerce-suite-kappa.vercel.app"
     );
 
     @Bean
@@ -127,7 +128,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(allowedOrigins(props.cors().allowedOrigins()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(List.of("Retry-After"));
         config.setAllowCredentials(true);
         config.setMaxAge(Duration.ofHours(1));

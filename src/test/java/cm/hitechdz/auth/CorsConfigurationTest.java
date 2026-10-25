@@ -39,6 +39,7 @@ class CorsConfigurationTest {
             "https://hitech-momo-market.lovable.app",
             "https://id-preview--f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovable.app",
             "https://f6567f8d-b9dd-4b36-8db3-c7395af30cfa.lovableproject.com",
+            "https://hitech-dz-commerce-suite-kappa.vercel.app",
             "http://localhost:8080",
             "https://autre-front.example"
     })
@@ -53,7 +54,7 @@ class CorsConfigurationTest {
         mvc.perform(options("/api/admin/products")
                         .header("Origin", origin)
                         .header("Access-Control-Request-Method", "POST")
-                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                        .header("Access-Control-Request-Headers", "authorization,content-type,x-requested-with"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", origin))
                 .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")))
@@ -80,6 +81,15 @@ class CorsConfigurationTest {
     void other_origins_are_refused_and_wildcard_is_ignored() throws Exception {
         mvc.perform(get("/api/categories").header("Origin", "https://site-pirate.example"))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/categories").header("Origin", "https://example.com"))
+                .andExpect(status().isForbidden());
+        mvc.perform(options("/api/categories")
+                        .header("Origin", "https://example.com")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
+        // Une autre application Vercel n'est pas autorisée
+        mvc.perform(get("/api/categories").header("Origin", "https://autre-site.vercel.app"))
+                .andExpect(status().isForbidden());
         mvc.perform(options("/api/categories")
                         .header("Origin", "https://autre-projet.lovable.app")
                         .header("Access-Control-Request-Method", "GET"))
@@ -100,5 +110,20 @@ class CorsConfigurationTest {
         mvc.perform(get("/api/admin/products").header("Origin", origin).header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(header().string("Access-Control-Allow-Origin", origin));
+    }
+
+    /** Les deux commandes curl de la demande, pour l'origine Vercel. */
+    @Test
+    void vercel_origin_preflight_and_real_get() throws Exception {
+        String vercel = "https://hitech-dz-commerce-suite-kappa.vercel.app";
+        mvc.perform(options("/api/categories")
+                        .header("Origin", vercel)
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", vercel))
+                .andExpect(header().string("Access-Control-Allow-Methods", containsString("GET")));
+        mvc.perform(get("/api/categories").header("Origin", vercel))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", vercel));
     }
 }

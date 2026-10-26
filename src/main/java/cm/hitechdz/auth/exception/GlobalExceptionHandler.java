@@ -31,6 +31,27 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(CheckoutConflictException.class)
+    public ResponseEntity<cm.hitechdz.auth.dto.order.CheckoutConflictResponse> handleCheckoutConflict(
+            CheckoutConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getBody());
+    }
+
+    /** 429 : en-tête Retry-After transmis par RateLimitedException. */
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimited(RateLimitedException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(ErrorResponse.of(ex.getMessage()));
+    }
+
+    /** En-tête obligatoire manquant (ex. Idempotency-Key). */
+    @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingHeader(org.springframework.web.bind.MissingRequestHeaderException ex) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("En-tête obligatoire manquant : " + ex.getHeaderName() + "."));
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApi(ApiException ex) {
         return ResponseEntity.status(ex.getStatus())

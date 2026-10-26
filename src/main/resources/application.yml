@@ -87,6 +87,18 @@ app:
     api-secret: ${CLOUDINARY_API_SECRET:}
     # Alternative : une seule variable cloudinary://API_KEY:API_SECRET@CLOUD_NAME
     url: ${CLOUDINARY_URL:}
+  # URL publique du serveur (sans / final), utilisée pour l'adresse de notification des paiements
+  public-base-url: ${APP_PUBLIC_BASE_URL:}
+  payments:
+    # none (défaut : seul le paiement à la livraison est proposé) | loov | sandbox (tests uniquement)
+    provider: ${PAYMENT_PROVIDER:none}
+    loov:
+      app-key: ${LOOV_APP_KEY:}
+      merchant-key: ${LOOV_MERCHANT_KEY:}
+      base-url: ${LOOV_BASE_URL:https://api.secure.payment.loov-solutions.com/v1}
+    sandbox:
+      # Secret HMAC (16 caractères minimum) des notifications simulées. Jamais en production.
+      secret: ${PAYMENT_SANDBOX_SECRET:}
   seed:
     # Catalogue de démonstration (6 catégories, 10 marques, 12 produits) si le catalogue est vide.
     # Toujours actif avec le profil « dev ».
@@ -101,3 +113,9 @@ app:
 logging:
   level:
     cm.hitechdz: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -46,7 +46,26 @@ public class SecurityConfig {
             "/api/auth/logout",
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
-            "/api/cart/validate"
+            "/api/cart/validate",
+            "/api/checkout/quote",
+            "/api/orders",
+            "/api/orders/*/cancel",
+            "/api/orders/*/payments",
+            "/api/payments/webhooks/*"
+    };
+
+    /**
+     * Commandes invitées : l'accès est contrôlé dans le service (JWT propriétaire, ADMIN ou
+     * X-Guest-Order-Token). /api/me/orders et /api/admin/** restent soumis à l'authentification.
+     */
+    private static final String[] GUEST_ORDER_GET_ENDPOINTS = {
+            "/api/checkout/options",
+            "/api/orders/*",
+            "/api/orders/*/payments/*",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/swagger-ui.html",
+            "/swagger-ui/**"
     };
 
     /** Catalogue public en lecture (les avis se publient connecté : POST non concerné). */
@@ -83,6 +102,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, GUEST_ORDER_GET_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/orders/*/payment-method").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
@@ -128,7 +149,8 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(allowedOrigins(props.cors().allowedOrigins()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin",
+                "Idempotency-Key", "X-Guest-Order-Token"));
         config.setExposedHeaders(List.of("Retry-After"));
         config.setAllowCredentials(true);
         config.setMaxAge(Duration.ofHours(1));

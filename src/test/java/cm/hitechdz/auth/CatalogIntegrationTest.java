@@ -1,6 +1,7 @@
 package cm.hitechdz.auth;
 
 import cm.hitechdz.auth.domain.order.CustomerOrder;
+import cm.hitechdz.auth.domain.order.OrderStatus;
 import cm.hitechdz.auth.exception.ApiException;
 import cm.hitechdz.auth.repository.catalog.ProductRepository;
 import cm.hitechdz.auth.service.catalog.InventoryService;
@@ -72,6 +73,9 @@ class CatalogIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired InventoryService inventory;
     @Autowired ProductRepository productRepository;
+    @Autowired cm.hitechdz.auth.repository.order.CustomerOrderRepository orderRepository;
+    @Autowired cm.hitechdz.auth.service.order.OrderLifecycle lifecycle;
+    @Autowired org.springframework.transaction.PlatformTransactionManager txManager;
 
     @MockitoBean ImageStorageService storage;
 
@@ -552,7 +556,7 @@ class CatalogIntegrationTest {
         Callable<Boolean> buy = () -> {
             start.await();
             try {
-                inventory.reserve(customerId, List.of(new ReserveItem(lastUnitId, null, 1)));
+                tx().executeWithoutResult(st -> inventory.reserve(List.of(new ReserveItem(lastUnitId, null, 1))));
                 return true;
             } catch (ApiException e) {
                 assertThat(e.getStatus().value()).isEqualTo(409);
@@ -569,34 +573,62 @@ class CatalogIntegrationTest {
         assertThat(productRepository.findById(lastUnitId).orElseThrow().getStock()).isZero();
 
         ApiException e = org.junit.jupiter.api.Assertions.assertThrows(ApiException.class,
-                () -> inventory.reserve(customerId, List.of(new ReserveItem(lastUnitId, null, 1))));
+                () -> tx().executeWithoutResult(st -> inventory.reserve(List.of(new ReserveItem(lastUnitId, null, 1)))));
         assertThat(e.getFieldErrors()).containsEntry("items[0]", "Produit indisponible");
     }
 
     @Test @Order(14)
-    void failed_payment_restocks_and_confirmed_payment_increments_sold() {
-        CustomerOrder failed = inventory.reserve(customerId, List.of(new ReserveItem(hpId, null, 3)));
+    void restock_after_failure_and_sold_counted_once() {
+        CustomerOrder failed = placeOrder(customerId, hpId, null, 3, OrderStatus.PENDING_PAYMENT);
         assertThat(productRepository.findById(hpId).orElseThrow().getStock()).isEqualTo(7);
-        inventory.failPayment(failed.getId());
+        inTx(failed, o -> { lifecycle.releaseStock(o); lifecycle.releaseStock(o); });   // une seule restitution
         assertThat(productRepository.findById(hpId).orElseThrow().getStock()).isEqualTo(10);
 
-        CustomerOrder variantOrder = inventory.reserve(customer2Id, List.of(new ReserveItem(galaxyId, "A55-N-128", 1)));
+        CustomerOrder variantOrder = placeOrder(customer2Id, galaxyId, "A55-N-128", 1, OrderStatus.PENDING_PAYMENT);
         assertThat(productRepository.findById(galaxyId).orElseThrow().getStock()).isEqualTo(2);
         assertThat(variantOrder.getItems().get(0).getVariantLabel()).isEqualTo("Noir · 128 Go");
-        inventory.confirmPayment(variantOrder.getId());
-        inventory.markDelivered(variantOrder.getId());          // achat vérifié pour customer2
+        inTx(variantOrder, o -> { lifecycle.countSale(o); o.setStatus(OrderStatus.DELIVERED); });   // achat vérifié
 
-        CustomerOrder paid = inventory.reserve(customerId, List.of(new ReserveItem(hpId, null, 2)));
-        inventory.confirmPayment(paid.getId());
+        CustomerOrder paid = placeOrder(customerId, hpId, null, 2, OrderStatus.PENDING_PAYMENT);
+        inTx(paid, o -> { lifecycle.countSale(o); lifecycle.countSale(o); });   // vente comptée une seule fois
         assertThat(productRepository.findById(hpId).orElseThrow().getSold()).isEqualTo(2);
         assertThat(productRepository.findById(hpId).orElseThrow().getStock()).isEqualTo(8);
 
         // Annulation après paiement : stock remis et ventes décomptées
-        CustomerOrder cancelled = inventory.reserve(customerId, List.of(new ReserveItem(hpId, null, 1)));
-        inventory.confirmPayment(cancelled.getId());
-        inventory.cancel(cancelled.getId());
+        CustomerOrder cancelled = placeOrder(customerId, hpId, null, 1, OrderStatus.PENDING_PAYMENT);
+        inTx(cancelled, o -> { lifecycle.countSale(o); o.setStatus(OrderStatus.CONFIRMED);
+            o.setPaymentStatus(cm.hitechdz.auth.domain.order.PaymentStatus.PAID); lifecycle.cancel(o, null, "test"); });
         assertThat(productRepository.findById(hpId).orElseThrow().getSold()).isEqualTo(2);
         assertThat(productRepository.findById(hpId).orElseThrow().getStock()).isEqualTo(8);
+    }
+
+    private org.springframework.transaction.support.TransactionTemplate tx() {
+        return new org.springframework.transaction.support.TransactionTemplate(txManager);
+    }
+
+    /** Commande minimale créée directement (le parcours HTTP complet est testé dans OrderFlowIntegrationTest). */
+    private CustomerOrder placeOrder(UUID user, String productId, String sku, int qty, OrderStatus status) {
+        return tx().execute(st -> {
+            var lines = inventory.reserve(List.of(new ReserveItem(productId, sku, qty)));
+            CustomerOrder o = new CustomerOrder();
+            o.setNumber(cm.hitechdz.auth.util.Tokens.reference("HD-T", 7));
+            o.setUserId(user);
+            o.setStatus(status);
+            o.setStockReserved(true);
+            lines.forEach(l -> o.addItem(l.toOrderItem()));
+            o.setSubtotal(lines.stream().mapToLong(l -> l.unitPrice() * l.qty()).sum());
+            o.setTotal(o.getSubtotal());
+            CustomerOrder saved = orderRepository.saveAndFlush(o);
+            saved.getItems().size();
+            return saved;
+        });
+    }
+
+    private void inTx(CustomerOrder order, java.util.function.Consumer<CustomerOrder> action) {
+        tx().executeWithoutResult(st -> {
+            CustomerOrder o = orderRepository.findByIdForUpdate(order.getId()).orElseThrow();
+            action.accept(o);
+        });
     }
 
     @Test @Order(15)
@@ -707,7 +739,7 @@ class CatalogIntegrationTest {
     @Test @Order(19)
     void delete_product_soft_when_ordered_physical_otherwise() throws Exception {
         // Le routeur figure dans une commande : suppression logique, images supprimées de Cloudinary
-        inventory.reserve(customerId, List.of(new ReserveItem(routerId, null, 1)));
+        placeOrder(customerId, routerId, null, 1, OrderStatus.PENDING_CONFIRMATION);
         clearInvocations(storage);
         send(delete("/api/admin/products/" + routerId), admin, null).andExpect(status().isNoContent());
         verify(storage).delete(routerPublicId);

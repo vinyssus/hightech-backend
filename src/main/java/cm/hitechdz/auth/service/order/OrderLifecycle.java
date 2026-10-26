@@ -10,6 +10,7 @@ import cm.hitechdz.auth.exception.ApiException;
 import cm.hitechdz.auth.repository.order.PaymentRepository;
 import cm.hitechdz.auth.service.catalog.InventoryService;
 import cm.hitechdz.auth.service.catalog.InventoryService.ReserveItem;
+import org.springframework.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -56,8 +57,11 @@ public class OrderLifecycle {
     @Transactional(propagation = Propagation.MANDATORY)
     public void reReserve(CustomerOrder order, Duration ttl) {
         if (!order.isStockReserved()) {
-            inventory.reserve(order.getItems().stream()
-                    .map(i -> new ReserveItem(i.getProductId(), i.getSku(), i.getQty())).toList());
+            boolean ok = inventory.tryReserve(order.getItems().stream()
+                    .map(i -> new ReserveItem(i.getProductId(), i.getSku(), i.getQty())).toList()).isPresent();
+            if (!ok) {
+                throw new ApiException(HttpStatus.CONFLICT, "Stock insuffisant pour certains articles.");
+            }
             order.setStockReserved(true);
             event(order, "Stock réservé de nouveau", null, "système");
         }

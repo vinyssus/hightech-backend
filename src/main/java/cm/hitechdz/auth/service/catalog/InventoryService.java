@@ -171,6 +171,30 @@ public class InventoryService {
         if (items == null || items.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Le panier est vide.");
         }
+        Map<String, String> errors = new LinkedHashMap<>();
+        List<ReservedLine> reserved = doReserve(items, errors);
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, INSUFFICIENT_STOCK, errors);
+        }
+        return reserved;
+    }
+
+    /**
+     * Comme reserve, mais sans exception (la transaction appelante n'est donc pas marquée en échec) :
+     * renvoie vide si un article n'est plus disponible, sans rien décrémenter.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<List<ReservedLine>> tryReserve(List<ReserveItem> items) {
+        if (items == null || items.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, String> errors = new LinkedHashMap<>();
+        List<ReservedLine> reserved = doReserve(items, errors);
+        return errors.isEmpty() ? Optional.of(reserved) : Optional.empty();
+    }
+
+    /** Vérifie tous les articles sous verrou, puis décrémente seulement si tout est disponible. */
+    private List<ReservedLine> doReserve(List<ReserveItem> items, Map<String, String> errors) {
         Map<String, Product> locked = lockProducts(items.stream().map(ReserveItem::productId).toList());
         Map<String, List<ProductVariant>> lockedVariants = new LinkedHashMap<>();
         for (Product p : locked.values()) {
@@ -179,8 +203,9 @@ public class InventoryService {
             }
         }
 
-        Map<String, String> errors = new LinkedHashMap<>();
-        List<ReservedLine> reserved = new ArrayList<>();
+        record Planned(Product product, ProductVariant variant, ReserveItem item) {}
+        List<Planned> plan = new ArrayList<>();
+        Map<String, Integer> demand = new LinkedHashMap<>();
         for (int i = 0; i < items.size(); i++) {
             ReserveItem item = items.get(i);
             String key = "items[" + i + "]";
@@ -205,24 +230,35 @@ public class InventoryService {
                 errors.put(key, INVALID_OPTION);
                 continue;
             }
+            String stockKey = p.getId() + "|" + (variant == null ? "" : variant.getSku());
+            int wanted = demand.merge(stockKey, item.qty(), Integer::sum);
             int available = variant != null ? variant.getStock() : p.getStock();
-            if (available < item.qty()) {
-                errors.put(key, available == 0 ? UNAVAILABLE : "Plus que " + available + " en stock");
+            if (available < wanted) {
+                int left = Math.max(available - (wanted - item.qty()), 0);
+                errors.put(key, left == 0 ? UNAVAILABLE : "Plus que " + left + " en stock");
                 continue;
             }
+            plan.add(new Planned(p, variant, item));
+        }
+        if (!errors.isEmpty()) {
+            return List.of();
+        }
+
+        List<ReservedLine> reserved = new ArrayList<>();
+        for (Planned pl : plan) {
+            Product p = pl.product();
+            ProductVariant variant = pl.variant();
+            int qty = pl.item().qty();
             long unitPrice = p.getPrice() + (variant != null ? variant.getPriceDelta() : 0);
             if (variant != null) {
-                variant.setStock(variant.getStock() - item.qty());
+                variant.setStock(variant.getStock() - qty);
                 p.recomputeStockFromVariants();
             } else {
-                p.setStock(p.getStock() - item.qty());
+                p.setStock(p.getStock() - qty);
             }
             String label = variant == null || variant.label().isEmpty() ? null : variant.label();
             reserved.add(new ReservedLine(p.getId(), variant == null ? null : variant.getSku(), p.getName(),
-                    label, CatalogMapper.mainImage(p), unitPrice, item.qty()));
-        }
-        if (!errors.isEmpty()) {
-            throw new ApiException(HttpStatus.CONFLICT, INSUFFICIENT_STOCK, errors);
+                    label, CatalogMapper.mainImage(p), unitPrice, qty));
         }
         productRepository.flush();
         return reserved;

@@ -246,12 +246,12 @@ public class OrderService {
     public OrderResponse cancel(String number, OrderAccess access, String reason) {
         CustomerOrder order = lock(number);
         access.check(order);
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return OrderMapper.toResponse(order, null);
+        }
         if (!access.admin() && !order.getStatus().customerCanCancel()) {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Cette commande ne peut plus être annulée (statut : " + order.getStatus().label().toLowerCase(Locale.ROOT) + ").");
-        }
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            return OrderMapper.toResponse(order, null);
         }
         lifecycle.cancel(order, reason, access.admin() ? "admin" : "client");
         return OrderMapper.toResponse(order, null);

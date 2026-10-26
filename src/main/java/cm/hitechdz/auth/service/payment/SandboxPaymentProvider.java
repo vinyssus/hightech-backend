@@ -38,8 +38,10 @@ public class SandboxPaymentProvider implements PaymentProvider {
     private final ObjectMapper json;
     private final Map<String, ProviderStatus> statuses = new ConcurrentHashMap<>();
 
-    public SandboxPaymentProvider(@Value("${app.payments.sandbox.secret:}") String secret, ObjectMapper json) {
-        this.secret = secret == null ? "" : secret.trim();
+    public SandboxPaymentProvider(@Value("${app.payments.sandbox.secret:}") String secret,
+                                  @Value("${app.payments.sandbox.allowed:false}") boolean allowed, ObjectMapper json) {
+        // Double sécurité : le sandbox exige aussi PAYMENT_SANDBOX_ALLOWED=true (jamais en production).
+        this.secret = secret == null || !allowed ? "" : secret.trim();
         this.json = json;
     }
 

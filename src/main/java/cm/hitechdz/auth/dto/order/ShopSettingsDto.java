@@ -2,11 +2,11 @@ package cm.hitechdz.auth.dto.order;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Positive;
 
 /** freeShippingFrom null = pas de livraison offerte automatique. */
 public record ShopSettingsDto(
-        @PositiveOrZero(message = "Le seuil doit être positif.")
+        @Positive(message = "Seuil de livraison offerte : laissez vide pour aucun, sinon un montant positif.")
         Long freeShippingFrom,
 
         @Min(value = 1, message = "Entre 1 et 120 minutes.") @Max(value = 120, message = "Entre 1 et 120 minutes.")

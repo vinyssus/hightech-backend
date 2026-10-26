@@ -57,7 +57,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.jwt.secret=dGVzdC1zZWNyZXQtcG91ci1oaXRlY2gtZHotYXV0aC0yNTYtYml0cy1taW5pbXVt",
         "app.rate-limit.login.max-requests=1000",
         "app.payments.provider=sandbox",
-        "app.payments.sandbox.secret=secret-sandbox-de-test-0123456789"
+        "app.payments.sandbox.secret=secret-sandbox-de-test-0123456789",
+        "app.payments.sandbox.allowed=true"
 })
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

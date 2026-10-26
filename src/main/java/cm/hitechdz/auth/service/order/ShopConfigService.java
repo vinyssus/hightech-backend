@@ -103,6 +103,12 @@ public class ShopConfigService {
         if (zoneRepository.existsById(id)) {
             throw new ApiException(HttpStatus.CONFLICT, "Cette zone existe déjà.", Map.of("id", "Cette zone existe déjà."));
         }
+        Map<String, String> errors = new java.util.LinkedHashMap<>();
+        if (req.label() == null || req.label().isBlank()) errors.put("label", "Le libellé est obligatoire.");
+        if (req.fee() == null) errors.put("fee", "Les frais sont obligatoires (0 pour gratuit).");
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Veuillez corriger les champs indiqués.", errors);
+        }
         ShippingZone z = new ShippingZone();
         z.setId(id);
         apply(z, req);
@@ -149,9 +155,15 @@ public class ShopConfigService {
     }
 
     private static void apply(ShippingZone z, ShippingZoneRequest req) {
-        z.setLabel(req.label().trim());
-        z.setFee(req.fee());
-        z.setDelay(req.delay() == null || req.delay().isBlank() ? null : req.delay().trim());
+        if (req.label() != null) {
+            if (req.label().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Le libellé est obligatoire.",
+                        Map.of("label", "Le libellé est obligatoire."));
+            }
+            z.setLabel(req.label().trim());
+        }
+        if (req.fee() != null) z.setFee(req.fee());
+        if (req.delay() != null) z.setDelay(req.delay().isBlank() ? null : req.delay().trim());
         if (req.requiresCity() != null) z.setRequiresCity(req.requiresCity());
         if (req.pickup() != null) z.setPickup(req.pickup());
         if (req.codAllowed() != null) z.setCodAllowed(req.codAllowed());

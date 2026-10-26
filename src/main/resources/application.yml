@@ -99,6 +99,8 @@ app:
     sandbox:
       # Secret HMAC (16 caractères minimum) des notifications simulées. Jamais en production.
       secret: ${PAYMENT_SANDBOX_SECRET:}
+      # Doit valoir true en plus du secret pour activer le sandbox (environnements de test uniquement)
+      allowed: ${PAYMENT_SANDBOX_ALLOWED:false}
   seed:
     # Catalogue de démonstration (6 catégories, 10 marques, 12 produits) si le catalogue est vide.
     # Toujours actif avec le profil « dev ».

@@ -34,7 +34,7 @@ public class PromoCode {
     @Column(nullable = false, length = 20)
     private PromoType type;
 
-    @Column(nullable = false)
+    @Column(name = "discount_value", nullable = false)
     private long value;
 
     @Column(length = 200)

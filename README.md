@@ -190,3 +190,129 @@ Catalogue de démonstration : `SEED_CATALOG=true` (ou profil `dev`) sur une base
 
 Le stock est réservé par `InventoryService.reserve` (verrou `SELECT … FOR UPDATE`) ; le module Commandes
 appellera `confirmPayment`, `failPayment`, `cancel` et `markDelivered`.
+
+## Commandes, livraison et paiements
+
+Documentation interactive : `GET /swagger-ui.html` (OpenAPI : `/v3/api-docs`). Montants en francs CFA entiers (`XAF`).
+Le serveur recalcule toujours prix, frais, remise, total et statut de paiement : les valeurs envoyées par le client ne font jamais foi.
+Le site ne demande, ne reçoit et n'enregistre jamais le code secret Mobile Money : le client valide sur son téléphone.
+
+### Mise en service (admin)
+
+1. Valider puis activer les zones de livraison (créées **inactives** : douala, yaounde, autre, retrait) :
+   `PUT /api/admin/shipping-zones/{id}` `{"label":"Douala","fee":2000,"delay":"24 à 48 h","active":true,"codAllowed":true}`.
+   Tant qu'aucune zone n'est active, `GET /api/checkout/options` renvoie une liste vide et aucune commande n'est possible.
+2. Réglages : `GET/PUT /api/admin/checkout/settings` `{"freeShippingFrom":null,"quoteValidityMinutes":15,"reservationMinutes":30,"paymentTimeoutMinutes":5}`.
+3. Codes promo : `GET/POST/PUT/DELETE /api/admin/promos`. Aucun code n'existe au départ ; BIENVENUE10, HITECH5000 et LIVRAISON
+   (démos du frontend) sont refusés tant qu'ils n'ont pas été créés après validation commerciale.
+
+### Parcours client
+
+| Méthode | Route | Accès |
+|---|---|---|
+| POST | `/api/cart/validate` | public (contrat inchangé) |
+| GET | `/api/checkout/options` | public |
+| POST | `/api/checkout/quote` | public |
+| POST | `/api/orders` (en-tête `Idempotency-Key` obligatoire) | public ou connecté → 201 |
+| GET | `/api/orders/{number}` | propriétaire (JWT) ou `X-Guest-Order-Token`, ou ADMIN |
+| POST | `/api/orders/{number}/cancel` | idem (avant préparation) |
+| PATCH | `/api/orders/{number}/payment-method` | idem (uniquement vers `CASH_ON_DELIVERY`) |
+| POST | `/api/orders/{number}/payments` (`Idempotency-Key`) | idem → 202 |
+| GET | `/api/orders/{number}/payments/{paymentId}` | idem (`Retry-After: 5` tant que `PENDING`) |
+| GET | `/api/me/orders?page=0&size=20` | connecté |
+| POST | `/api/payments/webhooks/{provider}` | prestataire (vérifié) |
+
+Statuts commande : `PENDING_PAYMENT, PENDING_CONFIRMATION, CONFIRMED, PREPARING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED`.
+Statuts paiement : `UNPAID, PENDING, PAID, FAILED, EXPIRED, REFUND_PENDING, REFUNDED`.
+
+**Devis** — `POST /api/checkout/quote`
+```json
+{"items":[{"productId":"p_123","sku":null,"qty":2}],"zoneId":"douala","city":null,"promoCode":null}
+```
+```json
+{"quoteId":"qt_Xy…","expiresAt":"2026-10-26T10:15:00Z","currency":"XAF",
+ "items":[{"productId":"p_123","sku":null,"name":"…","image":"…","unitPrice":10000,"oldPrice":null,"stock":48,"qty":2,"available":true,"message":null}],
+ "subtotal":20000,"discount":0,"shipping":2000,"total":22000,"promo":null,"canOrder":true,"issues":[]}
+```
+`issues[].code` : `PRICE_CHANGED`, `OUT_OF_STOCK`, `QUANTITY_EXCEEDED`, `INVALID_VARIANT`. Zone `autre` : `city` obligatoire.
+
+**Commande** — `POST /api/orders`, en-tête `Idempotency-Key: <uuid généré une fois par tentative de commande>`
+```json
+{"quoteId":"qt_Xy…","items":[{"productId":"p_123","sku":null,"qty":2}],"promoCode":null,
+ "delivery":{"name":"Jean Kamga","phone":"699123456","email":"jean@example.cm","zoneId":"douala","city":null,"address":"Akwa, face pharmacie","notes":""},
+ "paymentMethod":"CASH_ON_DELIVERY"}
+```
+`paymentMethod` : `CASH_ON_DELIVERY`, `ORANGE_MONEY`, `MTN_MOMO` (aucun choix par défaut). Réponse 201 :
+```json
+{"number":"HD-7K2M9QXA","createdAt":"…","status":"PENDING_CONFIRMATION","paymentStatus":"UNPAID","paymentMethod":"CASH_ON_DELIVERY",
+ "currency":"XAF","subtotal":20000,"discount":0,"shipping":2000,"total":22000,"promoCode":null,
+ "items":[{"productId":"p_123","sku":null,"name":"…","variantLabel":null,"image":"…","qty":2,"unitPrice":10000,"lineTotal":20000}],
+ "delivery":{"name":"Jean Kamga","phone":"+237699123456","email":"jean@example.cm","zoneId":"douala","zoneLabel":"Douala","city":null,"address":"Akwa, face pharmacie","notes":""},
+ "timeline":[{"status":"PENDING_CONFIRMATION","label":"Commande enregistrée","at":"…"}],
+ "guestAccessToken":"(invités uniquement, à garder en mémoire de session, jamais dans une URL)"}
+```
+- Même clé + même contenu → même commande (pas de doublon ; pour un invité, un nouveau jeton est émis). Même clé + contenu différent → 409.
+- 409 `{"message","fieldErrors","code":"QUOTE_EXPIRED|QUOTE_MISMATCH|PRICE_CHANGED|STOCK_CHANGED","issues","items","subtotal"}` : refaire un devis.
+- 400 `{"message","fieldErrors":{"delivery.phone":"…","paymentMethod":"…"}}`.
+- Paiement en ligne : la commande est `PENDING_PAYMENT` / `PENDING`, le stock est réservé jusqu'à `reservationExpiresAt`.
+
+**Paiement Mobile Money** — `POST /api/orders/{number}/payments` + `Idempotency-Key`
+```json
+{"operator":"ORANGE_MONEY","phone":"699123456"}
+```
+```json
+{"paymentId":"pay_…","orderNumber":"HD-7K2M9QXA","operator":"ORANGE_MONEY","status":"PENDING","amount":22000,"currency":"XAF",
+ "expiresAt":"…","message":"Validez le paiement sur votre téléphone.","checkoutUrl":null}
+```
+Puis interroger `GET /api/orders/{number}/payments/{paymentId}` toutes les 5 s : `PENDING` → `SUCCEEDED | FAILED | EXPIRED | CANCELLED`.
+En cas d'échec : nouvel essai (nouvelle clé) ou `PATCH …/payment-method {"paymentMethod":"CASH_ON_DELIVERY"}`.
+Seule la notification vérifiée du prestataire marque une commande payée. Paiement reçu après expiration et stock vendu :
+commande `CANCELLED` + `REFUND_PENDING` (remboursement manuel puis `POST /api/admin/orders/{n}/mark-refunded`).
+
+### Administration (rôle ADMIN)
+
+| Méthode | Route |
+|---|---|
+| GET | `/api/admin/orders?q=&status=&paymentStatus=&paymentMethod=&page=&size=` |
+| GET | `/api/admin/orders/{number}` (avec paiements et encaissement) |
+| PATCH | `/api/admin/orders/{number}/status` `{"status":"CONFIRMED","note":"…"}` |
+| POST | `/api/admin/orders/{number}/collect-payment` + `Idempotency-Key` `{"method":"CASH","reference":"Reçu 42"}` (livrée + à la livraison, une seule fois) |
+| POST | `/api/admin/orders/{number}/mark-refunded` `{"reason":"…"}` |
+
+Transitions : PENDING_CONFIRMATION → CONFIRMED → PREPARING → SHIPPED → OUT_FOR_DELIVERY → DELIVERED (retrait : PREPARING → DELIVERED) ;
+annulation possible avant expédition (stock restitué une seule fois). Changer le statut logistique ne marque jamais une commande payée.
+
+### curl (sans secrets)
+
+```bash
+API=https://hightech-backend.onrender.com
+curl -s $API/api/checkout/options
+curl -s -X POST $API/api/checkout/quote -H 'Content-Type: application/json' \
+  -d '{"items":[{"productId":"<ID>","qty":1}],"zoneId":"douala"}'
+curl -s -X POST $API/api/orders -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"quoteId":"<QUOTE>","items":[{"productId":"<ID>","qty":1}],"delivery":{"name":"Test","phone":"699000000","zoneId":"douala","address":"Akwa"},"paymentMethod":"CASH_ON_DELIVERY"}'
+curl -s $API/api/orders/<NUMERO> -H "X-Guest-Order-Token: <JETON>"
+curl -s "$API/api/admin/orders?status=PENDING_CONFIRMATION" -H "Authorization: Bearer <TOKEN_ADMIN>"
+curl -s -X PATCH $API/api/admin/orders/<NUMERO>/status -H "Authorization: Bearer <TOKEN_ADMIN>" \
+  -H 'Content-Type: application/json' -d '{"status":"CONFIRMED"}'
+curl -si -X OPTIONS $API/api/orders -H 'Origin: https://hitech-dz-commerce-suite-kappa.vercel.app' \
+  -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type,idempotency-key,x-guest-order-token'
+```
+
+### Variables d'environnement (Render, jamais dans le dépôt)
+
+| Variable | Rôle |
+|---|---|
+| `PAYMENT_PROVIDER` | `none` (défaut : paiement à la livraison seulement), `loov` (production), `sandbox` (tests, **jamais en production**) |
+| `LOOV_APP_KEY`, `LOOV_MERCHANT_KEY` | clés Loov (espace marchand) |
+| `LOOV_BASE_URL` | facultatif, défaut `https://api.secure.payment.loov-solutions.com/v1` |
+| `APP_PUBLIC_BASE_URL` | `https://hightech-backend.onrender.com` (adresse de notification envoyée à Loov) |
+| `PAYMENT_SANDBOX_SECRET` | ≥ 16 caractères, uniquement avec `sandbox` |
+
+Si le prestataire choisi n'est pas entièrement configuré, Orange Money et MTN MoMo ne sont pas proposés et toute tentative
+renvoie 503 : aucune réussite n'est simulée. Loov ne publiant pas de signature de webhook, chaque notification est
+revérifiée auprès de l'API de statut Loov (clés marchand) avant d'être appliquée, avec contrôle de la référence, du montant
+et de la devise, et anti-rejeu en base.
+
+Sandbox : webhook signé `X-Sandbox-Timestamp` (secondes) + `X-Sandbox-Signature` = HMAC-SHA256 hex de `"<timestamp>.<corps>"`
+avec `PAYMENT_SANDBOX_SECRET` ; corps `{"eventId","reference","status":"SUCCEEDED|FAILED","amount","currency"}`.

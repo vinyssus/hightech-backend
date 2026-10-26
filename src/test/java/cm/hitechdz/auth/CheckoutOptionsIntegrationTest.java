@@ -70,7 +70,7 @@ class CheckoutOptionsIntegrationTest {
         return json.readTree(r.andReturn().getResponse().getContentAsString());
     }
 
-    private JsonNode options() throws Exception {
+    private JsonNode checkoutOptions() throws Exception {
         return body(mvc.perform(get("/api/checkout/options")).andExpect(status().isOk()));
     }
 
@@ -114,7 +114,7 @@ class CheckoutOptionsIntegrationTest {
                 .get("id").asText();
 
         // Zones livrées inactives par la migration : c'est l'état constaté en production
-        JsonNode o = options();
+        JsonNode o = checkoutOptions();
         assertThat(o.get("currency").asText()).isEqualTo("XAF");
         assertThat(o.get("freeShippingFrom").isNull()).isTrue();
         assertThat(o.get("shippingZones").size()).isZero();
@@ -129,7 +129,7 @@ class CheckoutOptionsIntegrationTest {
         send(patch("/api/admin/shipping-zones/douala"), customer, Map.of("active", true)).andExpect(status().isForbidden());
         send(post("/api/admin/shipping-zones"), customer, Map.of("label", "X", "fee", 1)).andExpect(status().isForbidden());
         send(put("/api/admin/checkout/settings"), customer, Map.of("quoteValidityMinutes", 15)).andExpect(status().isForbidden());
-        assertThat(options().get("shippingZones").size()).isZero();
+        assertThat(checkoutOptions().get("shippingZones").size()).isZero();
     }
 
     @Test @Order(3)
@@ -141,7 +141,7 @@ class CheckoutOptionsIntegrationTest {
                 .andExpect(jsonPath("$.fee").value(2000));
         send(get("/api/admin/shipping-zones"), admin, null).andExpect(jsonPath("$[?(@.id=='douala')].active").value(true));
 
-        JsonNode o = options();
+        JsonNode o = checkoutOptions();
         assertThat(o.get("shippingZones").size()).isEqualTo(1);
         JsonNode z = o.get("shippingZones").get(0);
         Set<String> fields = new java.util.HashSet<>();
@@ -165,7 +165,7 @@ class CheckoutOptionsIntegrationTest {
         send(post("/api/admin/shipping-zones"), admin, Map.of("id", "bafoussam", "label", "Bafoussam", "fee", 4000,
                 "delay", "48 à 72 h", "codAllowed", false, "active", true, "position", 5))
                 .andExpect(status().isCreated());
-        JsonNode o = options();
+        JsonNode o = checkoutOptions();
         assertThat(o.get("shippingZones").size()).isEqualTo(2);
         JsonNode baf = o.get("shippingZones").get(1);
         assertThat(baf.get("id").asText()).isEqualTo("bafoussam");
@@ -174,9 +174,9 @@ class CheckoutOptionsIntegrationTest {
 
         // Seule une zone sans paiement à la livraison est active → aucun moyen annoncé
         send(patch("/api/admin/shipping-zones/douala"), admin, Map.of("active", false)).andExpect(status().isOk());
-        assertThat(options().get("paymentMethods").size()).isZero();
+        assertThat(checkoutOptions().get("paymentMethods").size()).isZero();
         send(patch("/api/admin/shipping-zones/douala"), admin, Map.of("active", true)).andExpect(status().isOk());
-        assertThat(options().get("paymentMethods").toString()).isEqualTo("[\"CASH_ON_DELIVERY\"]");
+        assertThat(checkoutOptions().get("paymentMethods").toString()).isEqualTo("[\"CASH_ON_DELIVERY\"]");
     }
 
     @Test @Order(5)
@@ -184,7 +184,7 @@ class CheckoutOptionsIntegrationTest {
         send(put("/api/admin/checkout/settings"), admin, Map.of("freeShippingFrom", 0)).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.freeShippingFrom").exists());
         send(get("/api/admin/checkout/settings"), admin, null).andExpect(jsonPath("$.freeShippingFrom").doesNotExist());
-        assertThat(options().get("freeShippingFrom").isNull()).isTrue();
+        assertThat(checkoutOptions().get("freeShippingFrom").isNull()).isTrue();
     }
 
     @Test @Order(6)

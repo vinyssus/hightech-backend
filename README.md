@@ -200,7 +200,9 @@ Le site ne demande, ne reçoit et n'enregistre jamais le code secret Mobile Mone
 ### Mise en service (admin)
 
 1. Valider puis activer les zones de livraison (créées **inactives** : douala, yaounde, autre, retrait) :
-   `PUT /api/admin/shipping-zones/{id}` `{"label":"Douala","fee":2000,"delay":"24 à 48 h","active":true,"codAllowed":true}`.
+   `PUT /api/admin/shipping-zones/{id}` `{"label":"Douala","fee":2000,"delay":"24 à 48 h","active":true,"codAllowed":true}`
+   ou, pour seulement activer/désactiver, `PATCH /api/admin/shipping-zones/{id}` `{"active":true}` (les champs absents ne changent pas).
+   Nouvelle zone : `POST /api/admin/shipping-zones` (`label` et `fee` obligatoires).
    Tant qu'aucune zone n'est active, `GET /api/checkout/options` renvoie une liste vide et aucune commande n'est possible.
 2. Réglages : `GET/PUT /api/admin/checkout/settings` `{"freeShippingFrom":null,"quoteValidityMinutes":15,"reservationMinutes":30,"paymentTimeoutMinutes":5}`.
 3. Codes promo : `GET/POST/PUT/DELETE /api/admin/promos`. Aucun code n'existe au départ ; BIENVENUE10, HITECH5000 et LIVRAISON
@@ -308,6 +310,7 @@ curl -si -X OPTIONS $API/api/orders -H 'Origin: https://hitech-dz-commerce-suite
 | `LOOV_BASE_URL` | facultatif, défaut `https://api.secure.payment.loov-solutions.com/v1` |
 | `APP_PUBLIC_BASE_URL` | `https://hightech-backend.onrender.com` (adresse de notification envoyée à Loov) |
 | `PAYMENT_SANDBOX_SECRET` | ≥ 16 caractères, uniquement avec `sandbox` |
+| `PAYMENT_SANDBOX_ALLOWED` | doit valoir `true` en plus du secret pour activer le sandbox ; ne jamais le définir sur Render |
 
 Si le prestataire choisi n'est pas entièrement configuré, Orange Money et MTN MoMo ne sont pas proposés et toute tentative
 renvoie 503 : aucune réussite n'est simulée. Loov ne publiant pas de signature de webhook, chaque notification est

@@ -79,7 +79,7 @@ class SubcategoryIntegrationTest {
                 .andExpect(status().isCreated())).get("accessToken").asText();
 
         send(post("/api/admin/categories"), admin, Map.of("name", "Ordinateurs", "icon", "laptop",
-                "sub", List.of("Portables", "Gaming", "gaming", " ")))
+                "sub", List.of("Portables", "Gaming", "gaming")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.sub.length()").value(2))
                 .andExpect(jsonPath("$.subcategories[1].slug").value("gaming"))

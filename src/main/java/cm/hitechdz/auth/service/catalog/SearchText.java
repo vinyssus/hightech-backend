@@ -24,7 +24,11 @@ final class SearchText {
         }
         if (p.getCategory() != null) {
             parts.add(p.getCategory().getName());
-            parts.addAll(p.getCategory().getSub());
+            if (p.getSubcategory() != null) {
+                parts.add(p.getSubcategory().getName());
+            } else {
+                parts.addAll(p.getCategory().getSub());   // produit non classé : comportement historique
+            }
         }
         String text = SlugUtil.normalize(String.join(" ", parts));
         p.setSearchText(text.length() > MAX_LENGTH ? text.substring(0, MAX_LENGTH) : text);

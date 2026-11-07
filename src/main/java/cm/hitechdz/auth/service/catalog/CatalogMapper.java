@@ -2,6 +2,9 @@ package cm.hitechdz.auth.service.catalog;
 
 import cm.hitechdz.auth.domain.catalog.Brand;
 import cm.hitechdz.auth.domain.catalog.Category;
+import cm.hitechdz.auth.domain.catalog.Subcategory;
+import cm.hitechdz.auth.dto.catalog.AdminSubcategoryDto;
+import cm.hitechdz.auth.dto.catalog.SubcategoryDto;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductImage;
 import cm.hitechdz.auth.domain.catalog.ProductVariant;
@@ -45,13 +48,13 @@ public final class CatalogMapper {
     }
 
     public static ProductSummary toSummary(Product p) {
-        return new ProductSummary(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p),
+        return new ProductSummary(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
                 p.getStock(), p.isNewProduct(), p.getSold());
     }
 
     public static ProductDetail toDetail(Product p) {
-        return new ProductDetail(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p),
+        return new ProductDetail(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
                 p.getStock(), p.isNewProduct(), p.getSold(),
                 imageUrls(p), p.getDescription(), specs(p), variantGroups(p), combinations(p));
@@ -66,7 +69,7 @@ public final class CatalogMapper {
                 .map(v -> new AdminCombination(v.getSku(), v.getColor(), v.getColorHex(), v.getCapacity(),
                         v.getRam(), v.getPriceDelta(), p.getPrice() + v.getPriceDelta(), v.getStock()))
                 .toList();
-        return new AdminProduct(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p),
+        return new AdminProduct(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
                 p.getStock(), p.isNewProduct(), p.getSold(),
                 imageUrls(p), details, p.getDescription(), specs(p), p.getStatus().json(), combinations,
@@ -74,11 +77,19 @@ public final class CatalogMapper {
     }
 
     public static CategoryDto toDto(Category c) {
-        return new CategoryDto(c.getSlug(), c.getName(), c.getIcon(), List.copyOf(c.getSub()));
+        return new CategoryDto(c.getSlug(), c.getName(), c.getIcon(), c.getSub(),
+                c.getSubcategories().stream().map(s -> new SubcategoryDto(s.getSlug(), s.getName())).toList());
     }
 
-    public static AdminCategoryDto toAdminDto(Category c, long productCount) {
-        return new AdminCategoryDto(c.getSlug(), c.getName(), c.getIcon(), List.copyOf(c.getSub()), productCount);
+    /** subCounts : id de sous-catégorie → nombre de produits. */
+    public static AdminCategoryDto toAdminDto(Category c, long productCount, Map<Long, Long> subCounts) {
+        return new AdminCategoryDto(c.getSlug(), c.getName(), c.getIcon(), c.getSub(),
+                c.getSubcategories().stream().map(s -> toAdminDto(s, subCounts.getOrDefault(s.getId(), 0L))).toList(),
+                productCount);
+    }
+
+    public static AdminSubcategoryDto toAdminDto(Subcategory s, long productCount) {
+        return new AdminSubcategoryDto(s.getSlug(), s.getName(), s.getPosition(), productCount);
     }
 
     // ------------------------------------------------------------------ variantes
@@ -139,6 +150,11 @@ public final class CatalogMapper {
     private static String brandName(Product p) {
         Brand b = p.getBrand();
         return b == null ? null : b.getName();
+    }
+
+    private static String subcategorySlug(Product p) {
+        Subcategory s = p.getSubcategory();
+        return s == null ? null : s.getSlug();
     }
 
     private static String categorySlug(Product p) {

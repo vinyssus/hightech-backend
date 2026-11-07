@@ -1,6 +1,7 @@
 package cm.hitechdz.auth.service.catalog;
 
 import cm.hitechdz.auth.domain.catalog.Category;
+import cm.hitechdz.auth.domain.catalog.Subcategory;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductImage;
 import cm.hitechdz.auth.domain.catalog.ProductSpec;
@@ -54,6 +55,7 @@ public class ProductAdminService {
     static final String NOT_FOUND = "Produit introuvable.";
     static final String INVALID_FIELDS = "Certains champs sont invalides.";
     static final String UNKNOWN_CATEGORY = "Cette catégorie n'existe pas.";
+    static final String UNKNOWN_SUBCATEGORY = "Cette sous-catégorie n'existe pas dans la catégorie choisie.";
     static final String OLD_PRICE = "L'ancien prix doit être supérieur au prix.";
     static final String IMAGE_HTTPS = "Chaque image doit être une URL https.";
     static final String IMAGE_UNKNOWN = "Image inconnue : envoyez-la d'abord via /api/admin/uploads/images.";
@@ -86,7 +88,8 @@ public class ProductAdminService {
 
     // ------------------------------------------------------------------ lecture
     @Transactional(readOnly = true)
-    public PageResponse<AdminProduct> list(String search, String category, String status, int page, int size) {
+    public PageResponse<AdminProduct> list(String search, String category, String subcategory, String status,
+                                           int page, int size) {
         ProductStatus statusFilter = null;
         if (status != null && !status.isBlank()) {
             statusFilter = ProductStatus.fromJson(status);
@@ -98,7 +101,7 @@ public class ProductAdminService {
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id")));
         return PageResponse.from(productRepository
-                .findAll(adminSpec(search, category, statusFilter), pageable)
+                .findAll(adminSpec(search, category, subcategory, statusFilter), pageable)
                 .map(CatalogMapper::toAdmin));
     }
 
@@ -295,13 +298,28 @@ public class ProductAdminService {
     }
 
     // ------------------------------------------------------------------ helpers
-    private record Validated(Category category, ProductStatus status) {}
+    private record Validated(Category category, Subcategory subcategory, ProductStatus status) {}
 
     private Validated validate(ProductRequest req, Product current) {
         Map<String, String> errors = new LinkedHashMap<>();
         Category category = categoryService.findForProduct(req.category());
         if (category == null) {
             errors.put("category", UNKNOWN_CATEGORY);
+        }
+        Subcategory subcategory = null;
+        if (category != null) {
+            if (req.subcategory() == null) {
+                // Champ absent (ancien formulaire) : on garde la sous-catégorie si elle reste valide
+                if (current != null && current.getSubcategory() != null
+                        && current.getSubcategory().getCategory().getId().equals(category.getId())) {
+                    subcategory = current.getSubcategory();
+                }
+            } else if (!req.subcategory().isBlank()) {
+                subcategory = category.resolveSubcategory(req.subcategory()).orElse(null);
+                if (subcategory == null) {
+                    errors.put("subcategory", UNKNOWN_SUBCATEGORY);
+                }
+            }
         }
         if (req.oldPrice() != null && req.oldPrice() <= req.price()) {
             errors.put("oldPrice", OLD_PRICE);
@@ -338,13 +356,14 @@ public class ProductAdminService {
         if (!errors.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_FIELDS, errors);
         }
-        return new Validated(category, status);
+        return new Validated(category, subcategory, status);
     }
 
     private void apply(Product p, ProductRequest req, Validated v) {
         p.setName(req.name().trim());
         p.setDescription(req.description() == null ? null : req.description().trim());
         p.setCategory(v.category());
+        p.setSubcategory(v.subcategory());
         p.setBrand(brandService.resolveOrCreate(req.brand()));
         p.setPrice(req.price());
         p.setOldPrice(req.oldPrice());
@@ -450,7 +469,8 @@ public class ProductAdminService {
         return s == null || s.isBlank() ? null : s.trim();
     }
 
-    private static Specification<Product> adminSpec(String search, String category, ProductStatus status) {
+    private static Specification<Product> adminSpec(String search, String category, String subcategory,
+                                                    ProductStatus status) {
         return (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.isNull(root.get("deletedAt")));
@@ -463,6 +483,9 @@ public class ProductAdminService {
             }
             if (category != null && !category.isBlank()) {
                 ps.add(cb.equal(root.join("category").get("slug"), category.trim()));
+            }
+            if (subcategory != null && !subcategory.isBlank()) {
+                ps.add(cb.equal(root.join("subcategory").get("slug"), subcategory.trim()));
             }
             if (status != null) {
                 ps.add(cb.equal(root.get("status"), status));

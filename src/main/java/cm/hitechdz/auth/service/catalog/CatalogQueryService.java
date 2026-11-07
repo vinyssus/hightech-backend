@@ -1,6 +1,7 @@
 package cm.hitechdz.auth.service.catalog;
 
 import cm.hitechdz.auth.domain.catalog.Brand;
+import cm.hitechdz.auth.domain.catalog.Category;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductStatus;
 import cm.hitechdz.auth.dto.catalog.BrandFacet;
@@ -8,8 +9,10 @@ import cm.hitechdz.auth.dto.catalog.CatalogPage;
 import cm.hitechdz.auth.dto.catalog.Facets;
 import cm.hitechdz.auth.dto.catalog.ProductDetail;
 import cm.hitechdz.auth.dto.catalog.ProductSummary;
+import cm.hitechdz.auth.dto.catalog.SubcategoryFacet;
 import cm.hitechdz.auth.exception.ApiException;
 import cm.hitechdz.auth.repository.catalog.BrandRepository;
+import cm.hitechdz.auth.repository.catalog.CategoryRepository;
 import cm.hitechdz.auth.repository.catalog.ProductFilter;
 import cm.hitechdz.auth.repository.catalog.ProductRepository;
 import cm.hitechdz.auth.repository.catalog.ProductSearchRepository;
@@ -41,16 +44,18 @@ public class CatalogQueryService {
     private final ProductRepository productRepository;
     private final ProductSearchRepository searchRepository;
     private final BrandRepository brandRepository;
+    private final CategoryRepository categoryRepository;
 
     public CatalogQueryService(ProductRepository productRepository, ProductSearchRepository searchRepository,
-                               BrandRepository brandRepository) {
+                               BrandRepository brandRepository, CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
         this.searchRepository = searchRepository;
         this.brandRepository = brandRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     /** Construit le filtre à partir des paramètres bruts de l'URL. */
-    public static ProductFilter filter(String q, String cat, List<String> brands, Long min, Long max,
+    public static ProductFilter filter(String q, String cat, String sub, List<String> brands, Long min, Long max,
                                        Boolean promo, Double rating, Boolean inStock) {
         String query = q == null ? null : SlugUtil.normalize(q);
         List<String> brandKeys = brands == null ? List.of() : brands.stream()
@@ -63,6 +68,7 @@ public class CatalogQueryService {
         return new ProductFilter(
                 query == null || query.isBlank() ? null : query,
                 cat == null || cat.isBlank() ? null : cat.trim(),
+                sub == null || sub.isBlank() ? null : sub.trim(),
                 brandKeys, min, max,
                 Boolean.TRUE.equals(promo), rating, Boolean.TRUE.equals(inStock));
     }
@@ -98,8 +104,21 @@ public class CatalogQueryService {
                 .toList();
         ProductSearchRepository.PriceRange range = searchRepository.priceRange(filter.withoutPrice());
 
+        // Sous-catégories : seulement dans une catégorie (les slugs sont propres à chaque catégorie)
+        List<SubcategoryFacet> subFacets = List.of();
+        if (filter.category() != null) {
+            Category category = categoryRepository.findBySlug(filter.category()).orElse(null);
+            if (category != null) {
+                Map<String, Long> subCounts = searchRepository.countBySubcategory(filter.withoutSubcategory());
+                subFacets = category.getSubcategories().stream()
+                        .filter(s -> subCounts.containsKey(s.getSlug()))
+                        .map(s -> new SubcategoryFacet(s.getSlug(), s.getName(), subCounts.get(s.getSlug())))
+                        .toList();
+            }
+        }
+
         return new CatalogPage(content, result.getNumber(), result.getSize(), result.getTotalElements(),
-                result.getTotalPages(), new Facets(brandFacets, range.min(), range.max()));
+                result.getTotalPages(), new Facets(brandFacets, subFacets, range.min(), range.max()));
     }
 
     @Transactional(readOnly = true)
@@ -131,7 +150,7 @@ public class CatalogQueryService {
         if (query.isBlank()) {
             return List.of();
         }
-        ProductFilter filter = new ProductFilter(query, null, List.of(), null, null, false, null, false);
+        ProductFilter filter = new ProductFilter(query, null, null, List.of(), null, null, false, null, false);
         int safeLimit = Math.min(Math.max(limit, 1), 20);
         return summaries(searchRepository.search(filter, SortMode.PERTINENCE, PageRequest.of(0, safeLimit))
                 .getContent());

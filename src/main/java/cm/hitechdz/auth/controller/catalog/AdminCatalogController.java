@@ -4,6 +4,9 @@ import cm.hitechdz.auth.dto.PageResponse;
 import cm.hitechdz.auth.dto.catalog.AdminCategoryDto;
 import cm.hitechdz.auth.dto.catalog.AdminProduct;
 import cm.hitechdz.auth.dto.catalog.AdminReviewDto;
+import cm.hitechdz.auth.dto.catalog.AdminSubcategoryDto;
+import cm.hitechdz.auth.dto.catalog.SubcategoryOrderRequest;
+import cm.hitechdz.auth.dto.catalog.SubcategoryRequest;
 import cm.hitechdz.auth.dto.catalog.BrandDto;
 import cm.hitechdz.auth.dto.catalog.CategoryRequest;
 import cm.hitechdz.auth.dto.catalog.ImageOrderRequest;
@@ -66,10 +69,11 @@ public class AdminCatalogController {
     @GetMapping("/products")
     public PageResponse<AdminProduct> products(@RequestParam(required = false) String search,
                                                @RequestParam(required = false) String category,
+                                               @RequestParam(required = false) String subcategory,
                                                @RequestParam(required = false) String status,
                                                @RequestParam(defaultValue = "0") int page,
                                                @RequestParam(defaultValue = "10") int size) {
-        return products.list(search, category, status, page, size);
+        return products.list(search, category, subcategory, status, page, size);
     }
 
     @GetMapping("/products/low-stock")
@@ -164,6 +168,33 @@ public class AdminCatalogController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteCategory(@PathVariable String slug) {
         categories.delete(slug);
+    }
+
+    // ------------------------------------------------------------------ sous-catégories
+    @PostMapping("/categories/{slug}/subcategories")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AdminSubcategoryDto createSubcategory(@PathVariable String slug,
+                                                 @Valid @RequestBody SubcategoryRequest request) {
+        return categories.createSubcategory(slug, request);
+    }
+
+    /** Réordonne : corps {"slugs": [...]} avec toutes les sous-catégories de la catégorie. */
+    @PutMapping("/categories/{slug}/subcategories")
+    public AdminCategoryDto reorderSubcategories(@PathVariable String slug,
+                                                 @Valid @RequestBody SubcategoryOrderRequest request) {
+        return categories.reorderSubcategories(slug, request.slugs());
+    }
+
+    @PutMapping("/categories/{slug}/subcategories/{subSlug}")
+    public AdminSubcategoryDto updateSubcategory(@PathVariable String slug, @PathVariable String subSlug,
+                                                 @Valid @RequestBody SubcategoryRequest request) {
+        return categories.updateSubcategory(slug, subSlug, request);
+    }
+
+    @DeleteMapping("/categories/{slug}/subcategories/{subSlug}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSubcategory(@PathVariable String slug, @PathVariable String subSlug) {
+        categories.deleteSubcategory(slug, subSlug);
     }
 
     // ------------------------------------------------------------------ marques

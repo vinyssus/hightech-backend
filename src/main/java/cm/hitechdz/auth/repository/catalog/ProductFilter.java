@@ -10,6 +10,7 @@ import java.util.List;
 public record ProductFilter(
         String q,
         String category,
+        String subcategory,
         List<String> brands,
         Long min,
         Long max,
@@ -18,11 +19,14 @@ public record ProductFilter(
         boolean inStock
 ) {
     public ProductFilter withoutBrands() {
-        return new ProductFilter(q, category, List.of(), min, max, promo, rating, inStock);
+        return new ProductFilter(q, category, subcategory, List.of(), min, max, promo, rating, inStock);
     }
 
     public ProductFilter withoutPrice() {
-        return new ProductFilter(q, category, brands, null, null, promo, rating, inStock);
+        return new ProductFilter(q, category, subcategory, brands, null, null, promo, rating, inStock);
+    }
+    public ProductFilter withoutSubcategory() {
+        return new ProductFilter(q, category, null, brands, min, max, promo, rating, inStock);
     }
 
     public boolean hasQuery() {

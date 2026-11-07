@@ -52,6 +52,11 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    /** Facultative ; toujours une sous-catégorie de {@link #category}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subcategory_id")
+    private Subcategory subcategory;
+
     /** Prix en FCFA (entier). */
     @Column(nullable = false)
     private long price;
@@ -173,6 +178,9 @@ public class Product {
 
     public Category getCategory() { return category; }
     public void setCategory(Category category) { this.category = category; }
+
+    public Subcategory getSubcategory() { return subcategory; }
+    public void setSubcategory(Subcategory subcategory) { this.subcategory = subcategory; }
 
     public long getPrice() { return price; }
     public void setPrice(long price) { this.price = price; }

@@ -135,6 +135,14 @@ public class CatalogSeeder implements ApplicationRunner {
         galaxy.recomputeStockFromVariants();
         iphone.recomputeStockFromVariants();
 
+        // Sous-catégories de démonstration
+        Map<Product, String> subs = Map.ofEntries(Map.entry(hp, "portables"), Map.entry(dell, "portables"),
+                Map.entry(lenovo, "portables"), Map.entry(galaxy, "android"), Map.entry(iphone, "iphone"),
+                Map.entry(tecno, "android"), Map.entry(jbl, "ecouteurs"), Map.entry(mouse, "souris-claviers"),
+                Map.entry(router, "wi-fi"), Map.entry(tv, "televiseurs"), Map.entry(ps5, "consoles"),
+                Map.entry(ssd, "ssd"));
+        subs.forEach((p, slug) -> p.setSubcategory(p.getCategory().findSubcategory(slug).orElse(null)));
+
         for (Product p : List.of(hp, dell, lenovo, galaxy, iphone, tecno, jbl, mouse, router, tv, ps5, ssd)) {
             support.refreshSearchText(p);
             productRepository.save(p);
@@ -162,7 +170,7 @@ public class CatalogSeeder implements ApplicationRunner {
         c.setIcon(icon);
         c.setPosition(position);
         c.setSub(subs);
-        return categoryRepository.save(c);
+        return categoryRepository.saveAndFlush(c);
     }
 
     private static Product product(String name, Brand brand, Category category, long price, Long oldPrice,

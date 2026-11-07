@@ -54,6 +54,7 @@ public class CatalogController {
     @GetMapping("/products")
     public CatalogPage products(@RequestParam(required = false) String q,
                                 @RequestParam(required = false) String cat,
+                                @RequestParam(required = false) String sub,
                                 @RequestParam(required = false) List<String> brands,
                                 @RequestParam(required = false) Long min,
                                 @RequestParam(required = false) Long max,
@@ -63,7 +64,7 @@ public class CatalogController {
                                 @RequestParam(required = false) String sort,
                                 @RequestParam(defaultValue = "0") int page,
                                 @RequestParam(defaultValue = "" + CatalogQueryService.DEFAULT_PAGE_SIZE) int size) {
-        return catalog.search(CatalogQueryService.filter(q, cat, brands, min, max, promo, rating, inStock),
+        return catalog.search(CatalogQueryService.filter(q, cat, sub, brands, min, max, promo, rating, inStock),
                 sort, page, size);
     }
 

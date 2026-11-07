@@ -49,5 +49,8 @@ public record ProductRequest(
         String status,
 
         @JsonProperty("isNew")
-        Boolean isNew
+        Boolean isNew,
+        /** Facultatif : slug ou nom d'une sous-catégorie de la catégorie choisie ; "" pour retirer. */
+        @Size(max = 120, message = "La sous-catégorie ne peut pas dépasser 120 caractères.")
+        String subcategory
 ) {}

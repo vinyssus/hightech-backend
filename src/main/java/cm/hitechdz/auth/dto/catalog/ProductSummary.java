@@ -9,6 +9,7 @@ public record ProductSummary(
         String name,
         String brand,
         String category,
+        String subcategory,
         long price,
         Long oldPrice,
         double rating,

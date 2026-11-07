@@ -2,6 +2,7 @@ package cm.hitechdz.auth.repository.catalog;
 
 import cm.hitechdz.auth.domain.catalog.Brand;
 import cm.hitechdz.auth.domain.catalog.Category;
+import cm.hitechdz.auth.domain.catalog.Subcategory;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductStatus;
 import jakarta.persistence.EntityManager;
@@ -88,6 +89,26 @@ public class ProductSearchRepository {
         return result;
     }
 
+    /** Nombre de produits par sous-catégorie (clé : slug). Appeler avec un filtre sans sous-catégorie. */
+    public Map<String, Long> countBySubcategory(ProductFilter filter) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<Product> root = query.from(Product.class);
+        Join<Product, Brand> brand = root.join("brand", JoinType.LEFT);
+        Join<Product, Category> category = root.join("category", JoinType.LEFT);
+        Join<Product, Subcategory> sub = root.join("subcategory", JoinType.INNER);
+        Expression<String> key = sub.get("slug");
+        Expression<Long> count = cb.count(root);
+        query.multiselect(key, count)
+                .where(predicates(cb, root, brand, category, filter))
+                .groupBy(key);
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Tuple t : em.createQuery(query).getResultList()) {
+            result.put(t.get(key), t.get(count));
+        }
+        return result;
+    }
+
     /** Bornes de prix des produits filtrés. Appeler avec un filtre sans min/max. */
     public PriceRange priceRange(ProductFilter filter) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
@@ -120,6 +141,10 @@ public class ProductSearchRepository {
         }
         if (f.category() != null && !f.category().isBlank()) {
             ps.add(cb.equal(category.get("slug"), f.category()));
+        }
+        if (f.subcategory() != null && !f.subcategory().isBlank()) {
+            Join<Product, Subcategory> sub = root.join("subcategory", JoinType.INNER);
+            ps.add(cb.equal(sub.get("slug"), f.subcategory()));
         }
         if (f.brands() != null && !f.brands().isEmpty()) {
             ps.add(brand.get("nameKey").in(f.brands()));

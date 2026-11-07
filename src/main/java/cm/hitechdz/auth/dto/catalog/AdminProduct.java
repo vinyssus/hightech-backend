@@ -12,6 +12,7 @@ public record AdminProduct(
         String name,
         String brand,
         String category,
+        String subcategory,
         long price,
         Long oldPrice,
         double rating,

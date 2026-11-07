@@ -2,6 +2,7 @@ package cm.hitechdz.auth.repository.catalog;
 
 import cm.hitechdz.auth.domain.catalog.Brand;
 import cm.hitechdz.auth.domain.catalog.Category;
+import cm.hitechdz.auth.domain.catalog.Subcategory;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductStatus;
 import jakarta.persistence.LockModeType;
@@ -33,6 +34,18 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     long countByBrandAndDeletedAtIsNull(Brand brand);
 
     List<Product> findByCategory(Category category);
+
+    long countBySubcategoryAndDeletedAtIsNull(Subcategory subcategory);
+
+    List<Product> findBySubcategory(Subcategory subcategory);
+
+    /** [id de sous-catégorie, nombre de produits non supprimés] pour une catégorie. */
+    @Query("""
+            select p.subcategory.id, count(p) from Product p
+            where p.category = :category and p.subcategory is not null and p.deletedAt is null
+            group by p.subcategory.id
+            """)
+    List<Object[]> countBySubcategoryIn(@Param("category") Category category);
 
     List<Product> findByBrand(Brand brand);
 

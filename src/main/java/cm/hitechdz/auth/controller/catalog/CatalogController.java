@@ -122,13 +122,14 @@ public class CatalogController {
 
     @GetMapping("/brands")
     public List<BrandDto> brands(@RequestParam(required = false) String cat,
+                                 @RequestParam(required = false) String sub,
                                  @RequestParam(required = false) String q,
                                  @RequestParam(required = false) Long min,
                                  @RequestParam(required = false) Long max,
                                  @RequestParam(required = false) Boolean promo,
                                  @RequestParam(required = false) Double rating,
                                  @RequestParam(required = false) Boolean inStock) {
-        return brandService.publicList(CatalogQueryService.filter(q, cat, null, min, max, promo, rating, inStock));
+        return brandService.publicList(CatalogQueryService.filter(q, cat, sub, null, min, max, promo, rating, inStock));
     }
 
     /** Recalcule le panier côté serveur : le prix envoyé par le navigateur n'est jamais pris en compte. */

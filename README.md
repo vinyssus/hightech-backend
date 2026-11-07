@@ -319,3 +319,28 @@ et de la devise, et anti-rejeu en base.
 
 Sandbox : webhook signé `X-Sandbox-Timestamp` (secondes) + `X-Sandbox-Signature` = HMAC-SHA256 hex de `"<timestamp>.<corps>"`
 avec `PAYMENT_SANDBOX_SECRET` ; corps `{"eventId","reference","status":"SUCCEEDED|FAILED","amount","currency"}`.
+
+## Sous-catégories
+
+Chaque catégorie possède des sous-catégories (slug unique dans la catégorie, jamais modifié après création).
+Un produit peut être rattaché à une sous-catégorie de sa catégorie (facultatif).
+Les anciens noms `sub` ont été repris automatiquement par la migration V6.
+
+**Public**
+- `GET /api/categories` → `[{"slug":"ordinateurs","name":"Ordinateurs","icon":"laptop","sub":["Portables","Gaming"],
+  "subcategories":[{"slug":"portables","name":"Portables"},{"slug":"gaming","name":"Gaming"}]}]` (`sub` conservé pour compatibilité).
+- `GET /api/products?cat=ordinateurs&sub=gaming` ; `facets.subcategories` = `[{"slug","name","count"}]` quand `cat` est fourni (vide sinon).
+- Les produits (`ProductSummary`, fiche, admin) ont un champ `subcategory` (slug ou `null`).
+
+**Admin (ADMIN)**
+| Méthode | Route | Corps |
+|---|---|---|
+| POST | `/api/admin/categories/{slug}/subcategories` | `{"name":"PC de bureau","position":2}` → 201 |
+| PUT | `/api/admin/categories/{slug}/subcategories/{subSlug}` | `{"name":"Jeux vidéo"}` (renommer, slug inchangé) |
+| PUT | `/api/admin/categories/{slug}/subcategories` | `{"slugs":["portables","gaming"]}` (nouvel ordre, toutes les sous-catégories) |
+| DELETE | `/api/admin/categories/{slug}/subcategories/{subSlug}` | 204, 409 si des produits l'utilisent |
+
+- `GET /api/admin/categories` : `subcategories[]` avec `position` et `productCount`.
+- Produit : champ `subcategory` (slug ou nom) dans `POST/PUT /api/admin/products`. Absent = conservé si la catégorie ne change pas ;
+  `""` = retiré ; inconnu ou hors catégorie → 400 `fieldErrors.subcategory`.
+- `GET /api/admin/products?category=…&subcategory=…`.

@@ -216,7 +216,7 @@ class CatalogIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.name").exists())
                 .andExpect(jsonPath("$.fieldErrors.price").exists())
-                .andExpect(jsonPath("$.fieldErrors.brand").exists())
+                .andExpect(jsonPath("$.fieldErrors.brand").doesNotExist())   // marque facultative
                 .andExpect(jsonPath("$.fieldErrors.category").exists())
                 .andExpect(jsonPath("$.fieldErrors.stock").exists());
 

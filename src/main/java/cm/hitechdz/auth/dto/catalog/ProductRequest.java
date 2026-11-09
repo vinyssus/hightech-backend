@@ -25,7 +25,7 @@ public record ProductRequest(
         @NotBlank(message = "La catégorie est obligatoire.")
         String category,
 
-        @NotBlank(message = "La marque est obligatoire.")
+        /** Facultative. Création : absente ou "" = sans marque. Modification : absente = inchangée, "" = retirée. */
         @Size(max = 60, message = "La marque ne peut pas dépasser 60 caractères.")
         String brand,
 

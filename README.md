@@ -344,3 +344,9 @@ Les anciens noms `sub` ont été repris automatiquement par la migration V6.
 - Produit : champ `subcategory` (slug ou nom) dans `POST/PUT /api/admin/products`. Absent = conservé si la catégorie ne change pas ;
   `""` = retiré ; inconnu ou hors catégorie → 400 `fieldErrors.subcategory`.
 - `GET /api/admin/products?category=…&subcategory=…`.
+
+## Marque facultative
+
+Dans `POST/PUT /api/admin/products`, `brand` est facultatif : absent, `null` ou `""` à la création = produit sans marque ;
+en modification, absent = marque inchangée, `""` = marque retirée. Les produits sans marque ont `"brand": null`
+et n'apparaissent pas dans les facettes de marque.

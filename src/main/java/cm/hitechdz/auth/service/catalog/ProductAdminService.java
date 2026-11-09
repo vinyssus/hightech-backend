@@ -364,7 +364,9 @@ public class ProductAdminService {
         p.setDescription(req.description() == null ? null : req.description().trim());
         p.setCategory(v.category());
         p.setSubcategory(v.subcategory());
-        p.setBrand(brandService.resolveOrCreate(req.brand()));
+        if (req.brand() != null) {
+            p.setBrand(req.brand().isBlank() ? null : brandService.resolveOrCreate(req.brand()));
+        }
         p.setPrice(req.price());
         p.setOldPrice(req.oldPrice());
         p.setStatus(v.status());

@@ -350,3 +350,13 @@ Les anciens noms `sub` ont été repris automatiquement par la migration V6.
 Dans `POST/PUT /api/admin/products`, `brand` est facultatif : absent, `null` ou `""` à la création = produit sans marque ;
 en modification, absent = marque inchangée, `""` = marque retirée. Les produits sans marque ont `"brand": null`
 et n'apparaissent pas dans les facettes de marque.
+
+## Bandeau d'annonces
+
+- Public : `GET /api/announcements` → `[{"id":1,"message":"Livraison rapide…","link":"/catalogue"}]` (actives, dans leur période
+  `[startsAt, endsAt]`, triées par `position` puis `id` ; `[]` si aucune ; `Cache-Control: public, max-age=60`).
+- Admin (ADMIN) : `GET/POST /api/admin/announcements`, `PUT/DELETE /api/admin/announcements/{id}`,
+  `PATCH /api/admin/announcements/{id}/active` `{"active":true}`.
+  Corps : `{"message":"…","link":"/catalogue"|"https://…"|null,"active":true,"position":0,"startsAt":"2026-12-01T00:00:00Z","endsAt":null}`.
+- Message 3 à 160 caractères ; lien = URL http(s) ou chemin commençant par `/` ; `endsAt` ≥ `startsAt`.
+- Annonces par défaut : livraison (active) et Mobile Money (**inactive** tant que le paiement en ligne n'est pas opérationnel).

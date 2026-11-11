@@ -360,3 +360,27 @@ et n'apparaissent pas dans les facettes de marque.
   Corps : `{"message":"…","link":"/catalogue"|"https://…"|null,"active":true,"position":0,"startsAt":"2026-12-01T00:00:00Z","endsAt":null}`.
 - Message 3 à 160 caractères ; lien = URL http(s) ou chemin commençant par `/` ; `endsAt` ≥ `startsAt`.
 - Annonces par défaut : livraison (active) et Mobile Money (**inactive** tant que le paiement en ligne n'est pas opérationnel).
+
+## Assistant IA (API Claude)
+
+Désactivé tant que `ANTHROPIC_API_KEY` n'est pas définie (aucune réponse simulée).
+
+| Variable (Render) | Rôle | Défaut |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | clé API Anthropic (console Claude) | — (assistant désactivé) |
+| `ASSISTANT_MODEL` | modèle | `claude-haiku-5-5` |
+| `ASSISTANT_DAILY_LIMIT` | messages max par jour (tous clients, heure de Douala) | `300` |
+| `ASSISTANT_MAX_MESSAGES_PER_IP` | messages max par IP sur 10 min | `20` |
+| `ASSISTANT_MAX_TOKENS` | longueur max d'une réponse | `1024` |
+| `ASSISTANT_SHOP_INFO` | infos validées (horaires, adresse, garantie, retours…) | vide |
+
+- `GET /api/assistant` → `{"enabled":true,"welcome":"…","suggestions":["…"]}`
+- `POST /api/assistant/chat` (public ; JWT facultatif)
+  ```json
+  {"messages":[{"role":"user","content":"Je cherche un PC portable"}],
+   "guestOrders":[{"number":"HD-7K2M9QXA","token":"<jeton invité>"}]}
+  ```
+  → `{"reply":"…","products":[ProductSummary…],"handoff":{"reason":"Garantie","message":"Bonjour HITECH DZ, …"}}`
+  (`handoff` absent si non proposé). 400 validation, 429 + `Retry-After`, 503 si indisponible ou quota atteint.
+- Outils en lecture seule : recherche et fiche produit, catégories, livraison/paiement, statut de commande
+  (propriétaire uniquement, sans adresse ni téléphone), passage à WhatsApp. Le jeton invité n'est jamais envoyé à l'IA.

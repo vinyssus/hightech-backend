@@ -89,6 +89,15 @@ app:
     url: ${CLOUDINARY_URL:}
   # URL publique du serveur (sans / final), utilisée pour l'adresse de notification des paiements
   public-base-url: ${APP_PUBLIC_BASE_URL:}
+  # Assistant IA (API Claude d'Anthropic). Désactivé si ANTHROPIC_API_KEY est absente.
+  assistant:
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ASSISTANT_MODEL:claude-haiku-5-5}
+    max-tokens: ${ASSISTANT_MAX_TOKENS:1024}
+    daily-limit: ${ASSISTANT_DAILY_LIMIT:300}
+    max-messages-per-ip: ${ASSISTANT_MAX_MESSAGES_PER_IP:20}
+    # Informations validées (horaires, adresse boutique, garantie…) ajoutées aux instructions de l'assistant
+    shop-info: ${ASSISTANT_SHOP_INFO:}
   payments:
     # none (défaut : seul le paiement à la livraison est proposé) | loov | sandbox (tests uniquement)
     provider: ${PAYMENT_PROVIDER:none}

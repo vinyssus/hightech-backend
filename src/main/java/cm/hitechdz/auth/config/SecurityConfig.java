@@ -51,7 +51,8 @@ public class SecurityConfig {
             "/api/orders",
             "/api/orders/*/cancel",
             "/api/orders/*/payments",
-            "/api/payments/webhooks/*"
+            "/api/payments/webhooks/*",
+            "/api/assistant/chat"
     };
 
     /**
@@ -74,7 +75,8 @@ public class SecurityConfig {
             "/api/products/**",
             "/api/categories",
             "/api/brands",
-            "/api/announcements"
+            "/api/announcements",
+            "/api/assistant"
     };
 
     @Bean

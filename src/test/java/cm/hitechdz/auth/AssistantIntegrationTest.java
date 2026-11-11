@@ -167,7 +167,7 @@ class AssistantIntegrationTest {
         JsonNode result = lastToolResult(captor);
         assertThat(result.get("type").asText()).isEqualTo("tool_result");
         assertThat(result.get("tool_use_id").asText()).isEqualTo("t1");
-        assertThat(result.get("content").asText()).contains("\"price_fcfa\":450000", "\"availability\":\"en stock\"");
+        assertThat(result.get("content").asText()).contains("\"price_fcfa\":450000", "\"availability\":\"plus que 3\"");   // 1 unité réservée par la commande
         // Le contenu de l'assistant (dont le bloc tool_use) est renvoyé tel quel
         JsonNode messages = captor.getValue().get("messages");
         assertThat(messages.get(1).get("role").asText()).isEqualTo("assistant");
@@ -284,7 +284,7 @@ class AssistantIntegrationTest {
         send(post("/api/assistant/chat"), null, chat("Bonjour")).andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.message").value(containsString("WhatsApp")));
 
-        when(model.send(any())).thenReturn(text("Bonjour !"));
+        org.mockito.Mockito.doReturn(text("Bonjour !")).when(model).send(any());
         List<Map<String, Object>> history = new java.util.ArrayList<>();
         for (int i = 0; i < 14; i++) {
             history.add(Map.of("role", "user", "content", "question " + i));

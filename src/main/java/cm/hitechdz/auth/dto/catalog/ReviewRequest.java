@@ -17,10 +17,10 @@ public record ReviewRequest(
         String title,
 
         @NotBlank(message = "Le texte de l'avis est obligatoire.")
-        @Size(min = 10, max = 3000, message = "L'avis doit contenir entre 10 et 3000 caractères.")
+        @Size(min = 10, max = 2000, message = "L'avis doit contenir entre 10 et 2000 caractères.")
         String body,
 
         /** Optionnel : ville affichée avec le prénom. */
-        @Size(max = 60, message = "La ville ne peut pas dépasser 60 caractères.")
+        @Size(max = 80, message = "La ville ne peut pas dépasser 80 caractères.")
         String city
 ) {}

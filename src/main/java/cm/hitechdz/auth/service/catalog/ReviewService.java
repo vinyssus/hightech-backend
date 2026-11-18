@@ -1,5 +1,7 @@
 package cm.hitechdz.auth.service.catalog;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import cm.hitechdz.auth.util.PlainText;
 import cm.hitechdz.auth.domain.User;
 import cm.hitechdz.auth.domain.catalog.Product;
 import cm.hitechdz.auth.domain.catalog.ProductStatus;
@@ -36,7 +38,7 @@ import java.util.UUID;
 public class ReviewService {
 
     static final String ALREADY_REVIEWED = "Vous avez déjà donné votre avis sur ce produit.";
-    static final String ALREADY_VOTED = "Vous avez déjà indiqué que cet avis était utile.";
+    static final String ALREADY_VOTED = "Vous avez déjà trouvé cet avis utile.";
     static final String REVIEW_NOT_FOUND = "Avis introuvable.";
     static final String INVALID_SORT = "Tri invalide (recent, rating ou helpful).";
 
@@ -75,16 +77,35 @@ public class ReviewService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Utilisateur introuvable. Veuillez vous reconnecter."));
 
+        // Texte brut : balises HTML/JS retirées, puis longueurs revérifiées sur le texte nettoyé
+        String title = PlainText.cleanLine(req.title());
+        String body = PlainText.clean(req.body());
+        String city = PlainText.cleanLine(req.city());
+        Map<String, String> errors = new LinkedHashMap<>();
+        if (title.length() < 3 || title.length() > 120) {
+            errors.put("title", "Le titre doit contenir entre 3 et 120 caractères.");
+        }
+        if (body.length() < 10 || body.length() > 2000) {
+            errors.put("body", "L'avis doit contenir entre 10 et 2000 caractères.");
+        }
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Veuillez corriger les champs indiqués.", errors);
+        }
+
         Review r = new Review();
         r.setProduct(product);
         r.setUserId(userId);
-        r.setAuthorName(user.getFirstName());
-        r.setAuthorCity(req.city() == null || req.city().isBlank() ? null : req.city().trim());
+        r.setAuthorName(authorName(user.getFirstName(), user.getLastName()));
+        r.setAuthorCity(city == null || city.isEmpty() ? null : city);
         r.setRating(req.rating());
-        r.setTitle(req.title().trim());
-        r.setBody(req.body().trim());
+        r.setTitle(title);
+        r.setBody(body);
         r.setVerified(orderItemRepository.existsDeliveredPurchase(userId, product.getId()));
-        reviewRepository.saveAndFlush(r);
+        try {
+            reviewRepository.saveAndFlush(r);
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED);   // double envoi simultané
+        }
 
         recomputeRating(product);
         return toDto(r);
@@ -100,7 +121,11 @@ public class ReviewService {
         if (voteRepository.existsById(key)) {
             throw new ApiException(HttpStatus.CONFLICT, ALREADY_VOTED);
         }
-        voteRepository.saveAndFlush(new ReviewHelpfulVote(reviewId, userId));
+        try {
+            voteRepository.saveAndFlush(new ReviewHelpfulVote(reviewId, userId));
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, ALREADY_VOTED);      // double clic simultané
+        }
         reviewRepository.incrementHelpful(reviewId);
         return new HelpfulResponse(reviewRepository.findById(reviewId).map(Review::getHelpfulCount).orElse(0));
     }
@@ -155,6 +180,20 @@ public class ReviewService {
         return new ReviewSummary(average, count, distribution);
     }
 
+    /** « Prénom N. » : prénom + initiale du nom ; jamais l'e-mail ni le téléphone. */
+    static String authorName(String firstName, String lastName) {
+        String first = firstName == null ? "" : firstName.strip();
+        String last = lastName == null ? "" : lastName.strip();
+        if (first.length() > 36) {
+            first = first.substring(0, 36);
+        }
+        if (last.isEmpty()) {
+            return first.isEmpty() ? "Client" : first;
+        }
+        String initial = last.substring(0, last.offsetByCodePoints(0, 1)).toUpperCase(java.util.Locale.ROOT);
+        return (first.isEmpty() ? "Client" : first) + " " + initial + ".";
+    }
+
     private Product visibleProduct(String slug) {
         return productRepository.findVisibleBySlug(slug, ProductStatus.PUBLISHED)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, CatalogQueryService.PRODUCT_NOT_FOUND));
@@ -178,7 +217,7 @@ public class ReviewService {
 
     private static AdminReviewDto toAdminDto(Review r) {
         Product p = r.getProduct();
-        return new AdminReviewDto(r.getId(), p.getId(), p.getSlug(), p.getName(), r.getUserId(),
+        return new AdminReviewDto(String.valueOf(r.getId()), p.getId(), p.getSlug(), p.getName(), r.getUserId(),
                 r.getAuthorName(), r.getAuthorCity(), r.getRating(), r.getTitle(), r.getBody(),
                 r.isVerified(), r.getHelpfulCount(), r.getCreatedAt());
     }

@@ -658,7 +658,7 @@ class CatalogIntegrationTest {
         JsonNode r1 = body(send(post("/api/products/" + hpSlug + "/reviews"), customer,
                 Map.of("rating", 4, "title", "Bon achat", "body", "Très bon ordinateur portable, rapide.", "city", "Douala"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.author").value("Paul"))
+                .andExpect(jsonPath("$.author").value("Paul E."))   // prénom + initiale du nom
                 .andExpect(jsonPath("$.city").value("Douala"))
                 .andExpect(jsonPath("$.verified").value(false)));
         send(post("/api/products/" + hpSlug + "/reviews"), customer,

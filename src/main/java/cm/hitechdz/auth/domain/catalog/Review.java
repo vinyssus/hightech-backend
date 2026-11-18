@@ -36,7 +36,7 @@ public class Review {
     @Column(name = "author_name", nullable = false, length = 40)
     private String authorName;
 
-    @Column(name = "author_city", length = 60)
+    @Column(name = "author_city", length = 80)
     private String authorCity;
 
     @Column(nullable = false)

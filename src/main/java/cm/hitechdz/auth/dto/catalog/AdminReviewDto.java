@@ -3,8 +3,9 @@ package cm.hitechdz.auth.dto.catalog;
 import java.time.Instant;
 import java.util.UUID;
 
+/** id en chaîne (contrat du frontend d'administration). */
 public record AdminReviewDto(
-        Long id,
+        String id,
         String productId,
         String productSlug,
         String productName,

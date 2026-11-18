@@ -384,3 +384,26 @@ Désactivé tant que `ANTHROPIC_API_KEY` n'est pas définie (aucune réponse sim
   (`handoff` absent si non proposé). 400 validation, 429 + `Retry-After`, 503 si indisponible ou quota atteint.
 - Outils en lecture seule : recherche et fiche produit, catégories, livraison/paiement, statut de commande
   (propriétaire uniquement, sans adresse ni téléphone), passage à WhatsApp. Le jeton invité n'est jamais envoyé à l'IA.
+
+## Bannières de la page d'accueil
+
+Trois emplacements : `MAIN` (16:9, min 1200×675, recommandé 1600×900), `SIDE_TOP` et `SIDE_BOTTOM`
+(4:3, min 600×450, recommandé 800×600). Aucune affiche au départ : le site garde ses visuels par défaut.
+
+- Public : `GET /api/banners/home` → `{"MAIN":[{"id","imageUrl","mobileImageUrl","altText","linkType","linkValue","position"}],
+  "SIDE_TOP":[],"SIDE_BOTTOM":[]}` (affiches actives dans leur période, triées par position ; `Cache-Control: public, max-age=60`).
+- Admin (ADMIN) :
+  - `GET /api/admin/banners?slot=&active=` (avec `status` : ACTIVE, SCHEDULED, EXPIRED, INACTIVE), `GET /api/admin/banners/{id}`,
+    `GET /api/admin/banners/specs` (normes) ;
+  - `POST /api/admin/banners` multipart : `image` (obligatoire), `mobileImage` (facultatif), `data` (JSON) → 201 ;
+  - `PUT /api/admin/banners/{id}` multipart : `data` obligatoire, images facultatives (l'ancienne est supprimée de Cloudinary),
+    `data.removeMobileImage=true` retire la version mobile ;
+  - `PATCH /api/admin/banners/{id}/active` `{"active":false}`, `PUT /api/admin/banners/reorder` `{"slot":"MAIN","ids":[3,1,2]}`,
+    `DELETE /api/admin/banners/{id}` → 204.
+- `data` : `{"slot":"MAIN","altText":"…","linkType":"CATEGORY|SUBCATEGORY|PRODUCT|URL|NONE","linkValue":"smartphones",
+  "position":0,"active":true,"startsAt":"2026-12-01T00:00:00Z","endsAt":null}` ; `linkValue` = slug catégorie,
+  `categorie/sous-categorie`, slug d'un produit publié ou URL https.
+- Images : vrai format lu dans les octets (JPEG, PNG, WebP, GIF ; SVG/BMP/TIFF/HEIC refusés → 415), 2 Mo max (4 Mo en GIF) → 400,
+  fichier > 5 Mo → 413, max 4000×4000, ratio ±5 %, version mobile ≥ 750 px de large. Stockage Cloudinary `hitech-dz/banners/{slot}`
+  sans redimensionnement, diffusion `f_auto,q_auto` (métadonnées retirées).
+- 6 affiches actives (en cours ou programmées) maximum par emplacement → 409.

@@ -407,3 +407,45 @@ Trois emplacements : `MAIN` (16:9, min 1200×675, recommandé 1600×900), `SIDE_
   fichier > 5 Mo → 413, max 4000×4000, ratio ±5 %, version mobile ≥ 750 px de large. Stockage Cloudinary `hitech-dz/banners/{slot}`
   sans redimensionnement, diffusion `f_auto,q_auto` (métadonnées retirées).
 - 6 affiches actives (en cours ou programmées) maximum par emplacement → 409.
+
+## Panneau publicitaire flottant
+
+Petite case en bas à gauche du site : publicités verticales 9:16 (GIF animés recommandés), sans texte, cliquables.
+
+**Public (sans authentification)**
+```bash
+API=https://hightech-backend.onrender.com
+curl -s $API/api/promo-popup          # réglages + publicités visibles (Cache-Control 60 s + ETag)
+curl -s $API/api/promo-popup/specs    # règles des images et bornes des réglages
+curl -s -o /dev/null -w "%{http_code}\n" $API/api/promo-popup -H 'If-None-Match: "<etag reçu>"'   # 304 si inchangé
+```
+```json
+{ "settings": { "enabled": true, "delayMs": 1500, "intervalMs": 4000, "showOnMobile": true, "dismissMode": "SESSION" },
+  "ads": [ { "id": "…", "imageUrl": "https://res.cloudinary.com/…", "mobileImageUrl": null, "altText": "Smartphones en promotion",
+             "linkType": "CATALOGUE", "linkValue": "promo", "position": 0 } ],
+  "updatedAt": "2026-11-18T19:50:00Z" }
+```
+`ads` vaut `[]` si le panneau est désactivé ou sans publicité visible.
+
+**Admin (ADMIN)**
+```bash
+T="Authorization: Bearer <TOKEN_ADMIN>"
+curl -s $API/api/admin/promo-popup/ads -H "$T"                       # statut LIVE | SCHEDULED | EXPIRED | DISABLED
+curl -s -X POST $API/api/admin/promo-popup/ads -H "$T" \
+  -F image=@pub-720x1280.gif \
+  -F 'data={"altText":"Smartphones en promotion","linkType":"CATALOGUE","linkValue":"promo","startsAt":"2026-12-01T08:00"};type=application/json'
+curl -s -X PUT $API/api/admin/promo-popup/ads/<id> -H "$T" -F 'data={"altText":"Nouveau texte","linkType":"NONE"};type=application/json'
+curl -s -X PATCH $API/api/admin/promo-popup/ads/<id>/active -H "$T" -H 'Content-Type: application/json' -d '{"active":false}'
+curl -s -X PUT $API/api/admin/promo-popup/ads/reorder -H "$T" -H 'Content-Type: application/json' -d '{"ids":["<id1>","<id2>"]}'
+curl -s -X DELETE $API/api/admin/promo-popup/ads/<id> -H "$T"
+curl -s $API/api/admin/promo-popup/settings -H "$T"
+curl -s -X PUT $API/api/admin/promo-popup/settings -H "$T" -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"delayMs":1500,"intervalMs":4000,"showOnMobile":true,"dismissMode":"SESSION"}'
+```
+- `data` : `altText` (3–120), `linkType` NONE | CATEGORY | SUBCATEGORY | PRODUCT | CATALOGUE (promo, nouveautes, popularite) | EXTERNAL (https),
+  `linkValue`, `position`, `active`, `startsAt`/`endsAt` (« 2026-12-01T08:00 » = heure de Douala, ou ISO avec fuseau ; stockés en UTC),
+  `removeMobileImage` (modification).
+- Images : GIF, WebP, PNG, JPEG (vrai type lu dans les octets ; sinon 415), 3 Mo pour un GIF, 1 Mo sinon, 9:16 ±5 %,
+  360×640 à 1080×1920, GIF ≤ 150 images et ≤ 15 s. Fichier > 5 Mo → 413. Cloudinary `hitech-dz/promo-popup`.
+- 6 publicités actives (en ligne ou programmées) maximum → 409. Réglages : délai 500–10 000 ms, durée 2 000–15 000 ms,
+  fermeture SESSION | DAY | NEVER_AGAIN.

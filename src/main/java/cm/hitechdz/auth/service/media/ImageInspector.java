@@ -130,6 +130,72 @@ public final class ImageInspector {
         }
     }
 
+    /** Animation d'un GIF : nombre d'images et durée totale d'une boucle. */
+    public record GifAnimation(int frames, int durationMs) {}
+
+    /**
+     * Parcourt les blocs d'un GIF (sans décoder les pixels) pour compter les images et additionner leurs délais.
+     * Un délai de 0 ou 1 centième est compté 100 ms, comme le font les navigateurs. Vide si le GIF est illisible.
+     */
+    public static Optional<GifAnimation> gifAnimation(byte[] b) {
+        if (b == null || b.length < 13 || b[0] != 'G' || b[1] != 'I' || b[2] != 'F') {
+            return Optional.empty();
+        }
+        int i = 13;
+        int packed = u8(b, 10);
+        if ((packed & 0x80) != 0) {
+            i += 3 * (1 << ((packed & 0x07) + 1));
+        }
+        int frames = 0;
+        long durationCs = 0;
+        int pendingDelay = 0;
+        while (i < b.length) {
+            int block = u8(b, i);
+            if (block == 0x3B) {                  // fin du fichier
+                break;
+            }
+            if (block == 0x21) {                  // extension
+                if (i + 2 >= b.length) return Optional.empty();
+                int label = u8(b, i + 1);
+                i += 2;
+                if (label == 0xF9 && i + 4 < b.length && u8(b, i) == 4) {
+                    pendingDelay = le16(b, i + 2);
+                }
+                i = skipSubBlocks(b, i);
+            } else if (block == 0x2C) {           // image
+                if (i + 10 >= b.length) return Optional.empty();
+                frames++;
+                durationCs += pendingDelay <= 1 ? 10 : pendingDelay;
+                pendingDelay = 0;
+                int localPacked = u8(b, i + 9);
+                i += 10;
+                if ((localPacked & 0x80) != 0) {
+                    i += 3 * (1 << ((localPacked & 0x07) + 1));
+                }
+                i += 1;                           // taille minimale du code LZW
+                i = skipSubBlocks(b, i);
+            } else {
+                return Optional.empty();
+            }
+            if (i < 0) {
+                return Optional.empty();
+            }
+        }
+        return frames == 0 ? Optional.empty() : Optional.of(new GifAnimation(frames, (int) Math.min(Integer.MAX_VALUE, durationCs * 10)));
+    }
+
+    /** Saute une suite de sous-blocs (longueur + données) terminée par 0 ; -1 si tronquée. */
+    private static int skipSubBlocks(byte[] b, int i) {
+        while (i < b.length) {
+            int size = u8(b, i);
+            if (size == 0) {
+                return i + 1;
+            }
+            i += size + 1;
+        }
+        return -1;
+    }
+
     // ------------------------------------------------------------------ formats refusés (message clair)
     private static String rejectedName(byte[] b) {
         if (b[0] == 'B' && b[1] == 'M') {

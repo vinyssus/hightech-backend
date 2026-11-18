@@ -16,6 +16,7 @@ public interface ImageStorageService {
     String TMP_FOLDER = PRODUCTS_FOLDER + "/tmp";
     String BRANDS_FOLDER = ROOT_FOLDER + "/brands";
     String BANNERS_FOLDER = ROOT_FOLDER + "/banners";
+    String PROMO_POPUP_FOLDER = ROOT_FOLDER + "/promo-popup";
 
     StoredImage upload(MultipartFile file, String folder);
 

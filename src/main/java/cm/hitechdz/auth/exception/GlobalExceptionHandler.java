@@ -90,6 +90,11 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                     .body(new ErrorResponse("Fichier trop lourd", Map.of("image", msg)));
         }
+        if (request.getRequestURI().startsWith("/api/admin/promo-popup")) {
+            String msg = "Fichier trop lourd : 5 Mo maximum par envoi (3 Mo pour un GIF, 1 Mo pour les autres formats).";
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(new ErrorResponse("Fichier trop lourd", Map.of("image", msg)));
+        }
         String msg = "L'image dépasse 5 Mo.";
         return ResponseEntity.badRequest().body(new ErrorResponse(msg, Map.of("files", msg)));
     }

@@ -77,6 +77,8 @@ public class SecurityConfig {
             "/api/brands",
             "/api/announcements",
             "/api/banners/home",
+            "/api/promo-popup",
+            "/api/promo-popup/specs",
             "/api/assistant"
     };
 

@@ -449,3 +449,15 @@ curl -s -X PUT $API/api/admin/promo-popup/settings -H "$T" -H 'Content-Type: app
   360×640 à 1080×1920, GIF ≤ 150 images et ≤ 15 s. Fichier > 5 Mo → 413. Cloudinary `hitech-dz/promo-popup`.
 - 6 publicités actives (en ligne ou programmées) maximum → 409. Réglages : délai 500–10 000 ms, durée 2 000–15 000 ms,
   fermeture SESSION | DAY | NEVER_AGAIN.
+
+## Avis clients
+
+- `GET /api/products/{slug}/reviews?page=0&size=10&sort=recent|rating|helpful` (public) →
+  `{content:[{id,rating,title,body,verified,helpfulCount,createdAt,author,city}],page,size,totalElements,totalPages,
+  summary:{average,count,distribution:{"1".."5"}}}` ; 404 si le produit n'existe pas.
+- `POST /api/products/{slug}/reviews` (JWT) `{"rating":5,"title":"…","body":"…","city":"Douala"}` → 201 ;
+  note 1–5, titre 3–120, texte 10–2000, ville ≤ 80 ; 409 si déjà un avis. `verified` = commande livrée contenant le produit.
+  Le HTML/JS est retiré (texte brut stocké). `author` = « Prénom N. ».
+- `POST /api/reviews/{id}/helpful` (JWT) → `{"helpfulCount":5}` ; 409 si déjà voté.
+- Admin : `GET /api/admin/reviews?page=0&size=20[&productId=]` (id en chaîne), `DELETE /api/admin/reviews/{id}` → 204.
+- La note et le nombre d'avis du produit sont recalculés dans la même transaction à chaque création ou suppression.

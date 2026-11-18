@@ -101,14 +101,17 @@ public class PaymentService {
             return toInitResponse(existing.get(), null);
         }
 
-        PaymentProvider provider = providers.active()
-                .orElseThrow(() -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE));
         switch (order.getStatus()) {
             case PENDING_PAYMENT -> { }
             case CANCELLED -> throw new ApiException(HttpStatus.CONFLICT, "Cette commande est annulée.");
             default -> throw new ApiException(HttpStatus.CONFLICT, order.getPaymentStatus() == PaymentStatus.PAID
-                    ? "Cette commande est déjà payée." : "Cette commande est payable à la livraison.");
+                    ? "Cette commande est déjà payée."
+                    : order.getSource() == cm.hitechdz.auth.domain.order.OrderSource.WHATSAPP
+                    ? "Commande passée sur WhatsApp : le paiement est enregistré par la boutique."
+                    : "Cette commande est payable à la livraison.");
         }
+        PaymentProvider provider = providers.active()
+                .orElseThrow(() -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE));
         for (Payment pending : paymentRepository.findPendingByOrder(order.getId())) {
             refreshLocked(pending, true);
             if (pending.getStatus() == Payment.Status.PENDING) {

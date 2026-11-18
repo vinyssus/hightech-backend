@@ -49,6 +49,7 @@ public class SecurityConfig {
             "/api/cart/validate",
             "/api/checkout/quote",
             "/api/orders",
+            "/api/orders/lookup",
             "/api/orders/*/cancel",
             "/api/orders/*/payments",
             "/api/payments/webhooks/*",

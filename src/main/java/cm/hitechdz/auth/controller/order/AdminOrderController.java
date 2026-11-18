@@ -44,7 +44,11 @@ public class AdminOrderController {
     private final ShopConfigService config;
     private final PromoService promos;
 
-    public AdminOrderController(OrderService orders, ShopConfigService config, PromoService promos) {
+    private final cm.hitechdz.auth.service.order.WhatsAppOrderService whatsapp;
+
+    public AdminOrderController(OrderService orders, ShopConfigService config, PromoService promos,
+                                cm.hitechdz.auth.service.order.WhatsAppOrderService whatsapp) {
+        this.whatsapp = whatsapp;
         this.orders = orders;
         this.config = config;
         this.promos = promos;
@@ -56,9 +60,28 @@ public class AdminOrderController {
                                                  @RequestParam(required = false) String status,
                                                  @RequestParam(required = false) String paymentStatus,
                                                  @RequestParam(required = false) String paymentMethod,
+                                                 @RequestParam(required = false) String source,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "10") int size) {
-        return orders.adminList(q, status, paymentStatus, paymentMethod, page, size);
+        return orders.adminList(q, status, paymentStatus, paymentMethod, source, page, size);
+    }
+
+    /**
+     * Commande saisie après une discussion WhatsApp : statut CONFIRMED, non payée, montants recalculés.
+     * 201, y compris quand la même clé d'idempotence rejoue la commande existante (comme POST /api/orders).
+     */
+    @PostMapping("/orders")
+    public org.springframework.http.ResponseEntity<AdminOrderResponse> create(
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody cm.hitechdz.auth.dto.order.AdminCreateOrderRequest request,
+            @RequestHeader(name = "Idempotency-Key", required = false) String key,
+            @AuthenticationPrincipal AuthenticatedUser admin) {
+        cm.hitechdz.auth.service.order.WhatsAppOrderService.Creation result;
+        try {
+            result = whatsapp.create(request, key, admin.id());
+        } catch (org.springframework.dao.DataIntegrityViolationException race) {
+            result = whatsapp.replayByKey(request, key);
+        }
+        return org.springframework.http.ResponseEntity.status(201).body(result.order());
     }
 
     @GetMapping("/orders/{number}")

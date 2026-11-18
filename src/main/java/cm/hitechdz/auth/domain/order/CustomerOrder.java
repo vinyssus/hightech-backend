@@ -1,6 +1,9 @@
 package cm.hitechdz.auth.domain.order;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -88,7 +91,16 @@ public class CustomerOrder {
     @Column(name = "guest_token_hash", length = 64) private String guestTokenHash;
     @Column(name = "guest_token_expires_at") private Instant guestTokenExpiresAt;
 
-    @Column(name = "idempotency_key", unique = true, length = 80) private String idempotencyKey;
+    @Column(name = "idempotency_key", unique = true, length = 100) private String idempotencyKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20) private OrderSource source = OrderSource.WEB;
+    @Column(name = "created_by_admin") private java.util.UUID createdByAdmin;
+
+    /** Jetons de suivi délivrés par numéro + téléphone (en plus du jeton de la commande invitée). */
+    @ElementCollection
+    @CollectionTable(name = "order_guest_tokens", joinColumns = @JoinColumn(name = "order_id"))
+    private java.util.List<GuestAccessToken> extraGuestTokens = new java.util.ArrayList<>();
     @Column(name = "request_hash", length = 64) private String requestHash;
 
     @Column(name = "stock_reserved", nullable = false) private boolean stockReserved;
@@ -198,6 +210,22 @@ public class CustomerOrder {
     public void setDeliveryAddress(String v) { this.deliveryAddress = v; }
     public String getDeliveryNotes() { return deliveryNotes; }
     public void setDeliveryNotes(String v) { this.deliveryNotes = v; }
+
+    public OrderSource getSource() { return source; }
+    public void setSource(OrderSource source) { this.source = source; }
+    public java.util.UUID getCreatedByAdmin() { return createdByAdmin; }
+    public void setCreatedByAdmin(java.util.UUID createdByAdmin) { this.createdByAdmin = createdByAdmin; }
+    public java.util.List<GuestAccessToken> getExtraGuestTokens() { return extraGuestTokens; }
+
+    /** Ajoute un jeton de suivi ; on n'en garde que les 5 plus récents non expirés. */
+    public void addExtraGuestToken(GuestAccessToken token) {
+        java.time.Instant now = java.time.Instant.now();
+        extraGuestTokens.removeIf(t -> t.getExpiresAt().isBefore(now));
+        extraGuestTokens.add(token);
+        while (extraGuestTokens.size() > 5) {
+            extraGuestTokens.remove(0);
+        }
+    }
 
     public String getGuestTokenHash() { return guestTokenHash; }
     public void setGuestTokenHash(String v) { this.guestTokenHash = v; }

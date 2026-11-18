@@ -13,6 +13,15 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
 
     Optional<User> findByEmail(String email);
 
+    /** Comptes actifs d'un rôle dont le téléphone (espaces, tirets, points et + retirés) se termine par digits. */
+    @org.springframework.data.jpa.repository.Query("""
+            select u from User u
+            where u.role = :role and u.enabled = true
+              and replace(replace(replace(replace(u.phone, ' ', ''), '-', ''), '.', ''), '+', '') like :pattern
+            """)
+    java.util.List<User> findActiveByPhoneDigits(@org.springframework.data.repository.query.Param("role") cm.hitechdz.auth.domain.Role role,
+                                                 @org.springframework.data.repository.query.Param("pattern") String pattern);
+
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndIdNot(String email, UUID id);

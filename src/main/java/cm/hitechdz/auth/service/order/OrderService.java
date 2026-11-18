@@ -3,6 +3,7 @@ package cm.hitechdz.auth.service.order;
 import cm.hitechdz.auth.domain.checkout.CheckoutQuote;
 import cm.hitechdz.auth.domain.checkout.ShippingZone;
 import cm.hitechdz.auth.domain.order.CustomerOrder;
+import cm.hitechdz.auth.domain.order.OrderSource;
 import cm.hitechdz.auth.domain.order.OrderStatus;
 import cm.hitechdz.auth.domain.order.PaymentMethod;
 import cm.hitechdz.auth.domain.order.PaymentStatus;
@@ -261,6 +262,13 @@ public class OrderService {
     @Transactional(readOnly = true)
     public PageResponse<AdminOrderResponse> adminList(String q, String status, String paymentStatus,
                                                       String paymentMethod, int page, int size) {
+        return adminList(q, status, paymentStatus, paymentMethod, null, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdminOrderResponse> adminList(String q, String status, String paymentStatus,
+                                                      String paymentMethod, String source, int page, int size) {
+        OrderSource src = parseEnum(OrderSource.class, source, "source");
         OrderStatus st = parseEnum(OrderStatus.class, status, "status");
         PaymentStatus ps = parseEnum(PaymentStatus.class, paymentStatus, "paymentStatus");
         PaymentMethod pm = parseEnum(PaymentMethod.class, paymentMethod, "paymentMethod");
@@ -280,6 +288,7 @@ public class OrderService {
             if (st != null) ps2.add(cb.equal(root.get("status"), st));
             if (ps != null) ps2.add(cb.equal(root.get("paymentStatus"), ps));
             if (pm != null) ps2.add(cb.equal(root.get("paymentMethod"), pm));
+            if (src != null) ps2.add(cb.equal(root.get("source"), src));
             return cb.and(ps2.toArray(new Predicate[0]));
         };
         return PageResponse.from(orderRepository.findAll(spec, pageable)
@@ -329,11 +338,20 @@ public class OrderService {
             }
             throw new ApiException(HttpStatus.CONFLICT, "Cette commande est déjà encaissée.");
         }
-        if (order.getPaymentMethod() != PaymentMethod.CASH_ON_DELIVERY) {
-            throw new ApiException(HttpStatus.CONFLICT, "Seules les commandes payables à la livraison ou au retrait s'encaissent ici.");
-        }
-        if (order.getStatus() != OrderStatus.DELIVERED) {
-            throw new ApiException(HttpStatus.CONFLICT, "La commande doit d'abord être livrée ou remise au client.");
+        boolean whatsappMobileMoney = order.getSource() == OrderSource.WHATSAPP
+                && order.getPaymentMethod() != null && order.getPaymentMethod().online();
+        if (whatsappMobileMoney) {
+            // Commande WhatsApp réglée par Orange Money / MTN MoMo hors plateforme : encaissable dès réception
+            if (order.getStatus() == OrderStatus.CANCELLED) {
+                throw new ApiException(HttpStatus.CONFLICT, "Cette commande est annulée.");
+            }
+        } else {
+            if (order.getPaymentMethod() != PaymentMethod.CASH_ON_DELIVERY) {
+                throw new ApiException(HttpStatus.CONFLICT, "Seules les commandes payables à la livraison ou au retrait s'encaissent ici.");
+            }
+            if (order.getStatus() != OrderStatus.DELIVERED) {
+                throw new ApiException(HttpStatus.CONFLICT, "La commande doit d'abord être livrée ou remise au client.");
+            }
         }
         String m = method == null ? "" : method.trim().toUpperCase(Locale.ROOT);
         if (!List.of("CASH", "ORANGE_MONEY", "MTN_MOMO").contains(m)) {
@@ -386,7 +404,7 @@ public class OrderService {
                 InventoryService.subtotal(lines)));
     }
 
-    private String newNumber() {
+    String newNumber() {
         for (int i = 0; i < 10; i++) {
             String n = Tokens.reference("HD-", 8);
             if (!orderRepository.existsByNumber(n)) {

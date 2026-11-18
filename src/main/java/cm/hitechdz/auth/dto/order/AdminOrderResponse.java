@@ -11,6 +11,10 @@ public record AdminOrderResponse(
         @JsonUnwrapped OrderResponse order,
         UUID userId,
         boolean guest,
+        /** WEB (site) ou WHATSAPP (saisie par un administrateur). */
+        String source,
+        /** Administrateur qui a saisi la commande (null pour une commande du site). */
+        UUID createdBy,
         boolean stockReserved,
         Collected collection,
         List<PaymentStatusResponse> payments

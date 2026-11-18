@@ -41,7 +41,11 @@ public class OrderController {
     private final PaymentService payments;
     private final RateLimiter rateLimiter;
 
-    public OrderController(OrderService orders, PaymentService payments, RateLimiter rateLimiter) {
+    private final cm.hitechdz.auth.service.order.WhatsAppOrderService whatsapp;
+
+    public OrderController(OrderService orders, PaymentService payments, RateLimiter rateLimiter,
+                           cm.hitechdz.auth.service.order.WhatsAppOrderService whatsapp) {
+        this.whatsapp = whatsapp;
         this.orders = orders;
         this.payments = payments;
         this.rateLimiter = rateLimiter;
@@ -64,6 +68,17 @@ public class OrderController {
             result = orders.replayByKey(request, key, userId);
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(result.order());
+    }
+
+    /**
+     * Suivi sans compte : numéro + téléphone de livraison → jeton pour l'en-tête X-Guest-Order-Token.
+     * 404 générique si l'un des deux ne correspond pas ; 5 essais par 15 minutes et par adresse IP.
+     */
+    @PostMapping("/api/orders/lookup")
+    public cm.hitechdz.auth.dto.order.OrderLookupResponse lookup(
+            @Valid @RequestBody cm.hitechdz.auth.dto.order.OrderLookupRequest request, HttpServletRequest http) {
+        Limits.check(rateLimiter, "lookup|" + http.getRemoteAddr(), 5, Duration.ofMinutes(15));
+        return new cm.hitechdz.auth.dto.order.OrderLookupResponse(whatsapp.lookup(request.number(), request.phone()));
     }
 
     @GetMapping("/api/orders/{number}")

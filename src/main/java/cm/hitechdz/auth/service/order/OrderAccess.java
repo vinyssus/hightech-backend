@@ -51,6 +51,18 @@ public record OrderAccess(UUID userId, boolean admin, String guestToken) {
                 && (order.getGuestTokenExpiresAt() == null || order.getGuestTokenExpiresAt().isAfter(Instant.now()))) {
             return;
         }
+        if (guestToken != null) {
+            // Jetons délivrés par POST /api/orders/lookup (numéro + téléphone de livraison)
+            String hash = Tokens.sha256(guestToken);
+            Instant now = Instant.now();
+            boolean match = false;
+            for (var t : order.getExtraGuestTokens()) {
+                match |= Tokens.constantTimeEquals(t.getTokenHash(), hash) && t.getExpiresAt().isAfter(now);
+            }
+            if (match) {
+                return;
+            }
+        }
         if (userId == null && guestToken == null) {
             if (JwtAuthenticationFilter.TOKEN_EXPIRED.equals(requestAttribute(JwtAuthenticationFilter.ATTR_TOKEN_ERROR))) {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "Votre session a expiré. Veuillez vous reconnecter.");

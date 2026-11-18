@@ -37,7 +37,7 @@ public final class OrderMapper {
                 : new AdminOrderResponse.Collected(o.getCollectedAt(), o.getCollectedBy(), o.getCollectedMethod(),
                 o.getCollectedReference(), o.getCollectedAmount());
         return new AdminOrderResponse(toResponse(o, null), o.getUserId(), o.getUserId() == null,
-                o.isStockReserved(), collected, payments.stream().map(OrderMapper::toPaymentStatus).toList());
+                o.getSource().name(), o.getCreatedByAdmin(), o.isStockReserved(), collected, payments.stream().map(OrderMapper::toPaymentStatus).toList());
     }
 
     public static PaymentStatusResponse toPaymentStatus(Payment p) {

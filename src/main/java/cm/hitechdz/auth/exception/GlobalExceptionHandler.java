@@ -82,7 +82,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex) {
+    public ResponseEntity<ErrorResponse> handleMaxUpload(MaxUploadSizeExceededException ex,
+                                                         jakarta.servlet.http.HttpServletRequest request) {
+        if (request.getRequestURI().startsWith("/api/admin/banners")) {
+            // Bannières : 413 (les autres envois gardent leur réponse 400 historique)
+            String msg = "Fichier trop lourd : 5 Mo maximum par envoi (2 Mo pour JPEG/PNG/WebP, 4 Mo pour GIF).";
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(new ErrorResponse("Fichier trop lourd", Map.of("image", msg)));
+        }
         String msg = "L'image dépasse 5 Mo.";
         return ResponseEntity.badRequest().body(new ErrorResponse(msg, Map.of("files", msg)));
     }

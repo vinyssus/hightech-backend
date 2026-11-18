@@ -15,8 +15,15 @@ public interface ImageStorageService {
     String PRODUCTS_FOLDER = ROOT_FOLDER + "/products";
     String TMP_FOLDER = PRODUCTS_FOLDER + "/tmp";
     String BRANDS_FOLDER = ROOT_FOLDER + "/brands";
+    String BANNERS_FOLDER = ROOT_FOLDER + "/banners";
 
     StoredImage upload(MultipartFile file, String folder);
+
+    /**
+     * Envoi d'une affiche telle quelle (pas de redimensionnement, contrairement aux produits) :
+     * dimensions et format sont déjà validés. Diffusion via f_auto,q_auto, qui retire les métadonnées (EXIF).
+     */
+    StoredImage uploadBanner(byte[] bytes, String folder);
 
     void delete(String publicId);
 

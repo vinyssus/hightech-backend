@@ -76,6 +76,7 @@ public class SecurityConfig {
             "/api/categories",
             "/api/brands",
             "/api/announcements",
+            "/api/banners/home",
             "/api/assistant"
     };
 

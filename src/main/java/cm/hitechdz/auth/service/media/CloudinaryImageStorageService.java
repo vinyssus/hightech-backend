@@ -53,6 +53,24 @@ public class CloudinaryImageStorageService implements ImageStorageService {
     }
 
     @Override
+    public StoredImage uploadBanner(byte[] bytes, String folder) {
+        Cloudinary cloudinary = client();
+        Map<String, Object> options = new HashMap<>();
+        options.put("folder", folder);
+        options.put("resource_type", "image");
+        options.put("unique_filename", true);   // identifiant aléatoire : le nom du fichier reçu n'est jamais utilisé
+        options.put("use_filename", false);
+        options.put("overwrite", false);
+        try {
+            Map<?, ?> result = cloudinary.uploader().upload(bytes, options);
+            return toStoredImage(result);
+        } catch (IOException | RuntimeException | LinkageError e) {
+            log.error("Échec d'envoi Cloudinary dans {} : {}", folder, e.toString(), e);
+            throw new ApiException(HttpStatus.BAD_GATEWAY, UPLOAD_FAILED);
+        }
+    }
+
+    @Override
     public void delete(String publicId) {
         if (!ImageStorageService.isManaged(publicId)) {
             return;

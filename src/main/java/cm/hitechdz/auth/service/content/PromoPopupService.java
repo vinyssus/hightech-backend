@@ -374,15 +374,16 @@ public class PromoPopupService {
             throw invalid(field, "L'image dépasse 1 Mo (reçue : " + megabytes(bytes.length) + "). Seuls les GIF peuvent aller jusqu'à 3 Mo.");
         }
         String received = " Reçue : " + info.width() + "×" + info.height() + " px.";
+        // Ratio d'abord : pour une image horizontale, c'est l'erreur la plus utile
+        double ratio = (double) info.width() / info.height();
+        if (Math.abs(ratio - RATIO) / RATIO > RATIO_TOLERANCE) {
+            throw invalid(field, "L'image doit être au format vertical 9:16 (ex. 720×1280)." + received);
+        }
         if (info.width() > MAX_WIDTH || info.height() > MAX_HEIGHT) {
             throw invalid(field, "L'image ne doit pas dépasser " + MAX_WIDTH + "×" + MAX_HEIGHT + " px." + received);
         }
         if (info.width() < MIN_WIDTH || info.height() < MIN_HEIGHT) {
             throw invalid(field, "L'image doit faire au moins " + MIN_WIDTH + "×" + MIN_HEIGHT + " px." + received);
-        }
-        double ratio = (double) info.width() / info.height();
-        if (Math.abs(ratio - RATIO) / RATIO > RATIO_TOLERANCE) {
-            throw invalid(field, "L'image doit être au format vertical 9:16 (ex. 720×1280)." + received);
         }
         ImageInspector.GifAnimation animation = null;
         if (gif) {

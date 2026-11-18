@@ -461,3 +461,23 @@ curl -s -X PUT $API/api/admin/promo-popup/settings -H "$T" -H 'Content-Type: app
 - `POST /api/reviews/{id}/helpful` (JWT) → `{"helpfulCount":5}` ; 409 si déjà voté.
 - Admin : `GET /api/admin/reviews?page=0&size=20[&productId=]` (id en chaîne), `DELETE /api/admin/reviews/{id}` → 204.
 - La note et le nombre d'avis du produit sont recalculés dans la même transaction à chaque création ou suppression.
+
+## Commandes saisies depuis WhatsApp
+
+- `POST /api/admin/orders` (ADMIN, en-tête `Idempotency-Key` obligatoire) :
+  ```json
+  { "source": "WHATSAPP", "items": [{ "productId": "…", "sku": null, "qty": 2 }],
+    "delivery": { "name": "Awa N.", "phone": "677123456", "email": "", "zoneId": "douala", "city": null,
+                  "address": "Bonapriso, face pharmacie", "notes": "" },
+    "paymentMethod": "CASH_ON_DELIVERY" }
+  ```
+  → 201 avec l'objet admin complet (`source`, `createdBy`). Prix et frais recalculés (sans code promo), stock réservé,
+  statut `CONFIRMED`, paiement `UNPAID`. Même clé = même commande ; même clé avec un autre contenu → 409.
+  Rattachée au compte client si un seul compte actif a ce téléphone, sinon commande invitée.
+  400 `fieldErrors` (`items[0]`, `delivery.phone`, `paymentMethod`, `source`…), 409 stock insuffisant, 403 non admin.
+- Orange Money / MTN MoMo : aucun paiement en ligne n'est lancé ; l'admin enregistre le paiement reçu avec
+  `POST /api/admin/orders/{number}/collect-payment` (possible dès réception pour ces commandes WhatsApp).
+- `GET /api/admin/orders?source=WHATSAPP|WEB`.
+- `POST /api/orders/lookup` (public) `{ "number": "HD-XXXXXXXX", "phone": "677123456" }` → `{ "guestAccessToken": "…" }`
+  à envoyer dans `X-Guest-Order-Token` ; 404 générique sinon ; 5 essais / 15 min par IP (429 + `Retry-After`).
+  Chaque recherche crée un nouveau jeton (90 jours) sans invalider les précédents.

@@ -105,8 +105,9 @@ class WhatsAppOrderIntegrationTest {
         productId = p.get("id").asText();
         productSlug = p.get("slug").asText();
         send(patch("/api/admin/shipping-zones/douala"), admin, Map.of("active", true)).andExpect(status().isOk());
+        send(patch("/api/admin/shipping-zones/yaounde"), admin, Map.of("active", false)).andExpect(status().isOk());
         send(post("/api/admin/shipping-zones"), admin, Map.of("id", "bafoussam", "label", "Bafoussam", "fee", 4000,
-                "codAllowed", false, "active", true)).andExpect(status().isCreated());
+                "delay", "48-72h", "codAllowed", false, "active", true)).andExpect(status().isCreated());
 
         send(post("/api/admin/orders").header("Idempotency-Key", UUID.randomUUID().toString()), null,
                 order(1, "699000111", "douala", "CASH_ON_DELIVERY")).andExpect(status().isUnauthorized());
@@ -157,8 +158,9 @@ class WhatsAppOrderIntegrationTest {
                 .andExpect(jsonPath("$.userId").isEmpty())
                 .andExpect(jsonPath("$.items[0].unitPrice").value(25_000))
                 .andExpect(jsonPath("$.subtotal").value(50_000))
-                .andExpect(jsonPath("$.shipping").value(2_000))
-                .andExpect(jsonPath("$.total").value(52_000))
+                .andExpect(jsonPath("$.shipping").value(1_000))
+                .andExpect(jsonPath("$.total").value(51_000))
+                .andExpect(jsonPath("$.delivery.delay").value("24h"))
                 .andExpect(jsonPath("$.delivery.phone").value("+237699000111"))
                 .andExpect(jsonPath("$.delivery.email").isEmpty())
                 .andExpect(jsonPath("$.timeline[0].label").value("Commande enregistrée via WhatsApp"))

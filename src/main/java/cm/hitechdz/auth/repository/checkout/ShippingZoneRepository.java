@@ -13,4 +13,10 @@ public interface ShippingZoneRepository extends JpaRepository<ShippingZone, Stri
 
     @Query("select z from ShippingZone z order by z.position asc, z.id asc")
     List<ShippingZone> findAllOrdered();
+
+    @Query("select z from ShippingZone z where lower(z.label) = lower(:label)")
+    List<ShippingZone> findByLabelIgnoreCase(@org.springframework.data.repository.query.Param("label") String label);
+
+    @Query("select coalesce(max(z.position), 0) from ShippingZone z")
+    int maxPosition();
 }

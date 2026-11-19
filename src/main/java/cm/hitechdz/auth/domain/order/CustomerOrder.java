@@ -84,6 +84,7 @@ public class CustomerOrder {
     @Column(name = "delivery_email", length = 254) private String deliveryEmail;
     @Column(name = "delivery_zone_id", length = 40) private String deliveryZoneId;
     @Column(name = "delivery_zone_label", length = 80) private String deliveryZoneLabel;
+    @Column(name = "delivery_zone_delay", length = 120) private String deliveryZoneDelay;
     @Column(name = "delivery_city", length = 80) private String deliveryCity;
     @Column(name = "delivery_address", length = 255) private String deliveryAddress;
     @Column(name = "delivery_notes", length = 500) private String deliveryNotes;
@@ -204,6 +205,8 @@ public class CustomerOrder {
     public void setDeliveryZoneId(String v) { this.deliveryZoneId = v; }
     public String getDeliveryZoneLabel() { return deliveryZoneLabel; }
     public void setDeliveryZoneLabel(String v) { this.deliveryZoneLabel = v; }
+    public String getDeliveryZoneDelay() { return deliveryZoneDelay; }
+    public void setDeliveryZoneDelay(String v) { this.deliveryZoneDelay = v; }
     public String getDeliveryCity() { return deliveryCity; }
     public void setDeliveryCity(String v) { this.deliveryCity = v; }
     public String getDeliveryAddress() { return deliveryAddress; }

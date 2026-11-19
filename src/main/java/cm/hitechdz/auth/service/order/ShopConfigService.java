@@ -11,6 +11,7 @@ import cm.hitechdz.auth.dto.order.ZoneOption;
 import cm.hitechdz.auth.exception.ApiException;
 import cm.hitechdz.auth.repository.checkout.ShippingZoneRepository;
 import cm.hitechdz.auth.repository.checkout.ShopSettingsRepository;
+import cm.hitechdz.auth.repository.order.CustomerOrderRepository;
 import cm.hitechdz.auth.service.payment.PaymentProviders;
 import cm.hitechdz.auth.util.SlugUtil;
 import org.springframework.http.HttpStatus;
@@ -18,8 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Zones de livraison et réglages de vente (gérés dans l'admin). */
 @Service
@@ -29,13 +32,18 @@ public class ShopConfigService {
 
     private final ShippingZoneRepository zoneRepository;
     private final ShopSettingsRepository settingsRepository;
+    static final String ZONE_UNAVAILABLE = "Zone de livraison indisponible";
+    static final long MAX_FEE = 100_000;
+
     private final PaymentProviders providers;
+    private final CustomerOrderRepository orderRepository;
 
     public ShopConfigService(ShippingZoneRepository zoneRepository, ShopSettingsRepository settingsRepository,
-                             PaymentProviders providers) {
+                             PaymentProviders providers, CustomerOrderRepository orderRepository) {
         this.zoneRepository = zoneRepository;
         this.settingsRepository = settingsRepository;
         this.providers = providers;
+        this.orderRepository = orderRepository;
     }
 
     @Transactional(readOnly = true)
@@ -70,8 +78,7 @@ public class ShopConfigService {
     public ShippingZone activeZone(String zoneId, String field) {
         ShippingZone zone = zoneId == null ? null : zoneRepository.findById(zoneId.trim()).orElse(null);
         if (zone == null || !zone.isActive()) {
-            String msg = "Cette zone de livraison n'est pas disponible.";
-            throw new ApiException(HttpStatus.BAD_REQUEST, msg, Map.of(field, msg));
+            throw new ApiException(HttpStatus.BAD_REQUEST, ZONE_UNAVAILABLE, Map.of(field, ZONE_UNAVAILABLE));
         }
         return zone;
     }
@@ -96,22 +103,20 @@ public class ShopConfigService {
 
     @Transactional
     public ShippingZoneDto createZone(ShippingZoneRequest req) {
-        String id = SlugUtil.slugify(req.id() == null || req.id().isBlank() ? req.label() : req.id());
-        if (id.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Identifiant de zone invalide.", Map.of("id", "Identifiant invalide."));
-        }
+        String id = SlugUtil.slugify(req.id() == null || req.id().isBlank()
+                ? (req.label() == null ? "" : req.label()) : req.id());
+        Map<String, String> errors = new LinkedHashMap<>();
+        if (req.fee() == null) errors.put("fee", "Les frais sont obligatoires (0 pour gratuit).");
+        if (id.isEmpty() && req.label() != null && !req.label().isBlank()) errors.put("id", "Identifiant invalide.");
+        ShippingZone z = new ShippingZone();
+        z.setId(id);
+        z.setActive(true);
+        apply(z, req);
+        validate(z, errors);
         if (zoneRepository.existsById(id)) {
             throw new ApiException(HttpStatus.CONFLICT, "Cette zone existe déjà.", Map.of("id", "Cette zone existe déjà."));
         }
-        Map<String, String> errors = new java.util.LinkedHashMap<>();
-        if (req.label() == null || req.label().isBlank()) errors.put("label", "Le libellé est obligatoire.");
-        if (req.fee() == null) errors.put("fee", "Les frais sont obligatoires (0 pour gratuit).");
-        if (!errors.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Veuillez corriger les champs indiqués.", errors);
-        }
-        ShippingZone z = new ShippingZone();
-        z.setId(id);
-        apply(z, req);
+        if (req.position() == null) z.setPosition(zoneRepository.maxPosition() + 1);
         return toDto(zoneRepository.saveAndFlush(z));
     }
 
@@ -120,16 +125,49 @@ public class ShopConfigService {
         ShippingZone z = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, ZONE_NOT_FOUND));
         apply(z, req);
+        validate(z, new LinkedHashMap<>());
         zoneRepository.flush();
         return toDto(z);
     }
 
+    /**
+     * Zone jamais utilisée : supprimée (vide). Zone présente dans des commandes : seulement
+     * désactivée et renvoyée, les commandes gardant leur copie de la zone.
+     */
     @Transactional
-    public void deleteZone(String id) {
+    public Optional<ShippingZoneDto> deleteZone(String id) {
         ShippingZone z = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, ZONE_NOT_FOUND));
-        // Les commandes gardent une copie de la zone : la suppression ne casse pas l'historique.
+        if (orderRepository.existsByDeliveryZoneId(z.getId())) {
+            z.setActive(false);
+            zoneRepository.flush();
+            return Optional.of(toDto(z));
+        }
         zoneRepository.delete(z);
+        return Optional.empty();
+    }
+
+    @Transactional
+    public List<ShippingZoneDto> reorderZones(List<String> ids) {
+        List<ShippingZone> all = zoneRepository.findAllOrdered();
+        Map<String, ShippingZone> byId = new LinkedHashMap<>();
+        all.forEach(z -> byId.put(z.getId(), z));
+        List<ShippingZone> ordered = new ArrayList<>();
+        for (String raw : ids) {
+            ShippingZone z = raw == null ? null : byId.remove(raw.trim());
+            if (z == null) {
+                String msg = raw != null && all.stream().anyMatch(a -> a.getId().equals(raw.trim()))
+                        ? "Zone en double : " + raw + "." : "Zone inconnue : " + raw + ".";
+                throw new ApiException(HttpStatus.BAD_REQUEST, msg, Map.of("ids", msg));
+            }
+            ordered.add(z);
+        }
+        ordered.addAll(byId.values());
+        for (int i = 0; i < ordered.size(); i++) {
+            ordered.get(i).setPosition(i + 1);
+        }
+        zoneRepository.flush();
+        return adminZones();
     }
 
     @Transactional(readOnly = true)
@@ -155,15 +193,9 @@ public class ShopConfigService {
     }
 
     private static void apply(ShippingZone z, ShippingZoneRequest req) {
-        if (req.label() != null) {
-            if (req.label().isBlank()) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Le libellé est obligatoire.",
-                        Map.of("label", "Le libellé est obligatoire."));
-            }
-            z.setLabel(req.label().trim());
-        }
+        if (req.label() != null) z.setLabel(req.label().trim());
         if (req.fee() != null) z.setFee(req.fee());
-        if (req.delay() != null) z.setDelay(req.delay().isBlank() ? null : req.delay().trim());
+        if (req.delay() != null) z.setDelay(req.delay().trim());
         if (req.requiresCity() != null) z.setRequiresCity(req.requiresCity());
         if (req.pickup() != null) z.setPickup(req.pickup());
         if (req.codAllowed() != null) z.setCodAllowed(req.codAllowed());
@@ -171,8 +203,40 @@ public class ShopConfigService {
         if (req.position() != null) z.setPosition(req.position());
     }
 
+    /** Règles d'une zone complète (création comme modification), puis unicité du libellé (409). */
+    private void validate(ShippingZone z, Map<String, String> errors) {
+        String label = z.getLabel();
+        if (label == null || label.isBlank()) {
+            errors.put("label", "Le libellé est obligatoire.");
+        } else if (label.length() < 2 || label.length() > 80) {
+            errors.put("label", "Le libellé doit contenir entre 2 et 80 caractères.");
+        }
+        if (z.getFee() < 0) errors.putIfAbsent("fee", "Les frais doivent être positifs ou nuls.");
+        if (z.getFee() > MAX_FEE) errors.putIfAbsent("fee", "Les frais ne peuvent pas dépasser 100 000 FCFA.");
+        String delay = z.getDelay();
+        if (delay == null || delay.isBlank()) {
+            errors.put("delay", "Le délai est obligatoire (ex. « 24-48h »).");
+        } else if (delay.length() < 2 || delay.length() > 40) {
+            errors.put("delay", "Le délai doit contenir entre 2 et 40 caractères.");
+        }
+        if (z.isPickup() && z.isRequiresCity()) {
+            String msg = "Un retrait en boutique ne peut pas exiger la ville du client.";
+            errors.put("pickup", msg);
+            errors.put("requiresCity", msg);
+        }
+        if (!errors.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Veuillez corriger les champs indiqués.", errors);
+        }
+        boolean duplicate = zoneRepository.findByLabelIgnoreCase(label).stream()
+                .anyMatch(other -> !other.getId().equals(z.getId()));
+        if (duplicate) {
+            String msg = "Une zone porte déjà ce libellé.";
+            throw new ApiException(HttpStatus.CONFLICT, msg, Map.of("label", msg));
+        }
+    }
+
     private static ShippingZoneDto toDto(ShippingZone z) {
         return new ShippingZoneDto(z.getId(), z.getLabel(), z.getFee(), z.getDelay(), z.isRequiresCity(),
-                z.isPickup(), z.isCodAllowed(), z.isActive(), z.getPosition(), z.getUpdatedAt());
+                z.isPickup(), z.isCodAllowed(), z.isActive(), z.getPosition(), z.getCreatedAt(), z.getUpdatedAt());
     }
 }

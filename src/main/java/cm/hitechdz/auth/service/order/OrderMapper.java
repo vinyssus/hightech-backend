@@ -22,7 +22,7 @@ public final class OrderMapper {
                 .toList();
         DeliveryResponse delivery = new DeliveryResponse(o.getDeliveryName(), o.getDeliveryPhone(),
                 o.getDeliveryEmail(), o.getDeliveryZoneId(), o.getDeliveryZoneLabel(), o.getDeliveryCity(),
-                o.getDeliveryAddress(), o.getDeliveryNotes() == null ? "" : o.getDeliveryNotes());
+                o.getDeliveryAddress(), o.getDeliveryNotes() == null ? "" : o.getDeliveryNotes(), o.getDeliveryZoneDelay());
         List<TimelineEntry> timeline = o.getEvents().stream()
                 .map(e -> new TimelineEntry(e.getStatus().name(), e.getLabel(), e.getCreatedAt(), e.getNote()))
                 .toList();

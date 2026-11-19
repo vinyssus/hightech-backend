@@ -176,6 +176,7 @@ public class OrderService {
         order.setDeliveryEmail(blankToNull(d.email()));
         order.setDeliveryZoneId(zone.getId());
         order.setDeliveryZoneLabel(zone.getLabel());
+        order.setDeliveryZoneDelay(zone.getDelay());
         order.setDeliveryCity(city != null ? city : zone.isPickup() ? null : zone.getLabel());
         order.setDeliveryAddress(blankToNull(d.address()));
         order.setDeliveryNotes(d.notes() == null ? null : d.notes().trim());

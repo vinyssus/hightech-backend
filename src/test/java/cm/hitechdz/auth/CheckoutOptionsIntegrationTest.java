@@ -102,7 +102,7 @@ class CheckoutOptionsIntegrationTest {
     }
 
     @Test @Order(1)
-    void no_active_zone_gives_empty_options_like_production() throws Exception {
+    void seeded_zones_are_active_and_sorted() throws Exception {
         admin = body(send(post("/api/auth/login"), null, Map.of("email", "admin@hitech-dz.cm", "password", "Admin123"))
                 .andExpect(status().isOk())).get("accessToken").asText();
         customer = body(send(post("/api/auth/register"), null, Map.of("firstName", "Awa", "lastName", "Test",
@@ -113,12 +113,22 @@ class CheckoutOptionsIntegrationTest {
                 "brand", "HP", "price", 5_000, "stock", 20, "status", "published")).andExpect(status().isCreated()))
                 .get("id").asText();
 
-        // Zones livrées inactives par la migration : c'est l'état constaté en production
+        // Zones initiales (tarifs de la boutique) : le bouton « Confirmer la commande » n'est plus grisé
         JsonNode o = checkoutOptions();
         assertThat(o.get("currency").asText()).isEqualTo("XAF");
         assertThat(o.get("freeShippingFrom").isNull()).isTrue();
-        assertThat(o.get("shippingZones").size()).isZero();
-        assertThat(o.get("paymentMethods").size()).isZero();
+        assertThat(o.get("shippingZones").size()).isEqualTo(4);
+        assertThat(o.get("shippingZones").findValuesAsText("id")).containsExactly("douala", "yaounde", "retrait", "autre");
+        assertThat(o.get("shippingZones").findValues("fee").stream().map(JsonNode::asLong).toList())
+                .containsExactly(1000L, 1500L, 0L, 3000L);
+        JsonNode retrait = o.get("shippingZones").get(2);
+        assertThat(retrait.get("label").asText()).isEqualTo("Retrait en boutique (Douala)");
+        assertThat(retrait.get("pickup").asBoolean()).isTrue();
+        JsonNode autre = o.get("shippingZones").get(3);
+        assertThat(autre.get("requiresCity").asBoolean()).isTrue();
+        assertThat(autre.get("codAllowed").asBoolean()).isFalse();
+        assertThat(autre.get("delay").asText()).isEqualTo("2-5 jours");
+        assertThat(o.get("paymentMethods").toString()).isEqualTo("[\"CASH_ON_DELIVERY\"]");
         // Le paiement en ligne n'est jamais annoncé sans intégration réelle (sandbox non autorisé)
         mvc.perform(get("/api/checkout/options")).andExpect(jsonPath("$.paymentMethods").isArray());
     }
@@ -129,17 +139,20 @@ class CheckoutOptionsIntegrationTest {
         send(patch("/api/admin/shipping-zones/douala"), customer, Map.of("active", true)).andExpect(status().isForbidden());
         send(post("/api/admin/shipping-zones"), customer, Map.of("label", "X", "fee", 1)).andExpect(status().isForbidden());
         send(put("/api/admin/checkout/settings"), customer, Map.of("quoteValidityMinutes", 15)).andExpect(status().isForbidden());
-        assertThat(checkoutOptions().get("shippingZones").size()).isZero();
+        assertThat(checkoutOptions().get("shippingZones").size()).isEqualTo(4);
     }
 
     @Test @Order(3)
-    void activating_a_zone_is_saved_and_immediately_visible() throws Exception {
-        // Activation seule : libellé et tarif enregistrés par l'admin sont conservés
-        send(patch("/api/admin/shipping-zones/douala"), admin, Map.of("active", true)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.active").value(true))
-                .andExpect(jsonPath("$.label").value("Douala"))
-                .andExpect(jsonPath("$.fee").value(2000));
-        send(get("/api/admin/shipping-zones"), admin, null).andExpect(jsonPath("$[?(@.id=='douala')].active").value(true));
+    void deactivating_zones_is_saved_and_immediately_visible() throws Exception {
+        for (String id : List.of("yaounde", "retrait", "autre")) {
+            // Désactivation seule : libellé et tarif enregistrés sont conservés
+            send(patch("/api/admin/shipping-zones/" + id), admin, Map.of("active", false)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.active").value(false));
+        }
+        send(get("/api/admin/shipping-zones"), admin, null)
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[?(@.id=='yaounde')].active").value(false))
+                .andExpect(jsonPath("$[?(@.id=='yaounde')].fee").value(1500));
 
         JsonNode o = checkoutOptions();
         assertThat(o.get("shippingZones").size()).isEqualTo(1);
@@ -148,7 +161,8 @@ class CheckoutOptionsIntegrationTest {
         z.fieldNames().forEachRemaining(fields::add);
         assertThat(fields).containsExactlyInAnyOrder("id", "label", "delay", "fee", "codAllowed", "requiresCity", "pickup");
         assertThat(z.get("id").asText()).isEqualTo("douala");
-        assertThat(z.get("delay").isNull()).isTrue();            // aucun délai inventé
+        assertThat(z.get("delay").asText()).isEqualTo("24h");
+        assertThat(z.get("fee").asLong()).isEqualTo(1000);
         assertThat(z.get("codAllowed").asBoolean()).isTrue();
         // Tableau de chaînes, uniquement le paiement à la livraison
         assertThat(o.get("paymentMethods").toString()).isEqualTo("[\"CASH_ON_DELIVERY\"]");
@@ -195,8 +209,10 @@ class CheckoutOptionsIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
                 .andExpect(jsonPath("$.paymentStatus").value("UNPAID"))
-                .andExpect(jsonPath("$.shipping").value(2000))
-                .andExpect(jsonPath("$.total").value(7000)));
+                .andExpect(jsonPath("$.shipping").value(1000))
+                .andExpect(jsonPath("$.total").value(6000))
+                .andExpect(jsonPath("$.delivery.zoneLabel").value("Douala"))
+                .andExpect(jsonPath("$.delivery.delay").value("24h")));
         String number = first.get("number").asText();
 
         JsonNode again = body(send(post("/api/orders").header("Idempotency-Key", key), null, b).andExpect(status().isCreated()));
@@ -225,7 +241,7 @@ class CheckoutOptionsIntegrationTest {
         // Zone inactive refusée
         send(post("/api/checkout/quote"), null, Map.of("items", List.of(Map.of("productId", productId, "qty", 1)),
                 "zoneId", "yaounde")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.zoneId").value("Cette zone de livraison n'est pas disponible."));
+                .andExpect(jsonPath("$.fieldErrors.zoneId").value("Zone de livraison indisponible"));
         send(get("/api/admin/orders"), admin, null).andExpect(jsonPath("$.totalElements").value(1));
     }
 

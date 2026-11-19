@@ -199,11 +199,27 @@ Le site ne demande, ne reçoit et n'enregistre jamais le code secret Mobile Mone
 
 ### Mise en service (admin)
 
-1. Valider puis activer les zones de livraison (créées **inactives** : douala, yaounde, autre, retrait) :
-   `PUT /api/admin/shipping-zones/{id}` `{"label":"Douala","fee":2000,"delay":"24 à 48 h","active":true,"codAllowed":true}`
-   ou, pour seulement activer/désactiver, `PATCH /api/admin/shipping-zones/{id}` `{"active":true}` (les champs absents ne changent pas).
-   Nouvelle zone : `POST /api/admin/shipping-zones` (`label` et `fee` obligatoires).
-   Tant qu'aucune zone n'est active, `GET /api/checkout/options` renvoie une liste vide et aucune commande n'est possible.
+1. Zones de livraison (rôle ADMIN). La migration V13 active les tarifs de la boutique — Douala 1 000 FCFA « 24h »,
+   Yaoundé 1 500 « 24-48h », Retrait en boutique (Douala) 0 « Même jour » (retrait), Autres villes du Cameroun 3 000
+   « 2-5 jours » (ville obligatoire, sans paiement à la livraison) — uniquement sur les zones de démonstration jamais
+   modifiées (ou si la table est vide). Flyway ne l'exécute qu'une fois : un redéploiement ne recrée ni n'écrase aucune zone
+   (`ddl-auto: validate`, le schéma n'est jamais recréé).
+
+   | Méthode | Route | Résultat |
+   |---|---|---|
+   | GET | `/api/admin/shipping-zones` | toutes les zones (actives et inactives), triées par `position` |
+   | POST | `/api/admin/shipping-zones` | 201 + zone |
+   | PUT / PATCH | `/api/admin/shipping-zones/{id}` | 200 + zone (champs absents inchangés, zone obtenue revalidée) |
+   | DELETE | `/api/admin/shipping-zones/{id}` | 204 ; **200 + zone désactivée** si des commandes l'utilisent |
+   | PATCH | `/api/admin/shipping-zones/reorder` `{"ids":["douala","yaounde"]}` | 200 + liste ; zones non citées placées après |
+
+   Corps : `{"id":"kribi","label":"Kribi","fee":2500,"delay":"48-72h","requiresCity":false,"pickup":false,"codAllowed":true,"active":true,"position":5}`
+   (`id` facultatif, dérivé du libellé, immuable). Réponse : mêmes champs + `createdAt`, `updatedAt`.
+   Règles : `label` 2–80 caractères, unique sans tenir compte de la casse (sinon 409 `fieldErrors.label`) ; `fee` 0–100 000 ;
+   `delay` 2–40 caractères ; `pickup` et `requiresCity` jamais vrais ensemble (400). À la création : `active` vaut `true`,
+   `requiresCity`, `pickup` et `codAllowed` valent `false`, `position` = dernière + 1. 404 si l'id est inconnu.
+   `GET /api/checkout/options` ne renvoie que les zones actives, triées ; `CASH_ON_DELIVERY` n'y figure que si une zone active a `codAllowed`.
+   Les commandes copient `zoneId`, `zoneLabel`, `delay` (`delivery.delay`) et les frais (`shipping`).
 2. Réglages : `GET/PUT /api/admin/checkout/settings` `{"freeShippingFrom":null,"quoteValidityMinutes":15,"reservationMinutes":30,"paymentTimeoutMinutes":5}`.
 3. Codes promo : `GET/POST/PUT/DELETE /api/admin/promos`. Aucun code n'existe au départ ; BIENVENUE10, HITECH5000 et LIVRAISON
    (démos du frontend) sont refusés tant qu'ils n'ont pas été créés après validation commerciale.

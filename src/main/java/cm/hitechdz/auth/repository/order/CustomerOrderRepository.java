@@ -24,6 +24,8 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UU
 
     boolean existsByNumber(String number);
 
+    boolean existsByDeliveryZoneId(String zoneId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from CustomerOrder o where o.id = :id")
     Optional<CustomerOrder> findByIdForUpdate(@Param("id") UUID id);

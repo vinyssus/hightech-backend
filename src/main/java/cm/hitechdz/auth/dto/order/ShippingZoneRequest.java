@@ -1,25 +1,25 @@
 package cm.hitechdz.auth.dto.order;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 /**
- * id utilisé seulement à la création (ex. « bafoussam ») ; ensuite immuable.
- * Création : label et fee obligatoires. Modification : seuls les champs envoyés changent
- * (ex. {"active": true} pour activer une zone).
+ * id facultatif, utilisé seulement à la création (sinon dérivé du libellé) ; ensuite immuable.
+ * Création : label, fee et delay obligatoires ; requiresCity, pickup et codAllowed valent false
+ * et active vaut true s'ils sont absents ; position = dernière + 1.
+ * Modification (PUT ou PATCH) : les champs absents gardent leur valeur ; la zone obtenue est
+ * entièrement revalidée.
  */
 public record ShippingZoneRequest(
         @Size(max = 40) String id,
-
-        @Size(max = 80, message = "Le libellé ne peut pas dépasser 80 caractères.")
         String label,
 
         @PositiveOrZero(message = "Les frais doivent être positifs ou nuls.")
+        @Max(value = 100_000, message = "Les frais ne peuvent pas dépasser 100 000 FCFA.")
         Long fee,
 
-        @Size(max = 120, message = "Le délai ne peut pas dépasser 120 caractères.")
         String delay,
-
         Boolean requiresCity,
         Boolean pickup,
         Boolean codAllowed,

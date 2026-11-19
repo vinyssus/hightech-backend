@@ -187,7 +187,7 @@ class AssistantIntegrationTest {
         ArgumentCaptor<ObjectNode> captor = ArgumentCaptor.forClass(ObjectNode.class);
         verify(model, times(3)).send(captor.capture());
         String delivery = lastToolResult(captor).get("content").asText();
-        assertThat(delivery).contains("\"label\":\"Douala\"", "\"fee_fcfa\":2000", "Paiement à la livraison");
+        assertThat(delivery).contains("\"label\":\"Douala\"", "\"fee_fcfa\":1000", "Paiement à la livraison");
         assertThat(delivery).doesNotContain("Orange Money");   // pas de prestataire configuré
     }
 

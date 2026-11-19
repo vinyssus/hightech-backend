@@ -37,7 +37,7 @@ public class ShippingZone {
     private boolean pickup;
 
     @Column(name = "cod_allowed", nullable = false)
-    private boolean codAllowed = true;
+    private boolean codAllowed;
 
     @Column(nullable = false)
     private boolean active;
@@ -45,10 +45,18 @@ public class ShippingZone {
     @Column(nullable = false)
     private int position;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @PrePersist
+    void created() {
+        createdAt = Instant.now();
+        updatedAt = createdAt;
+    }
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -81,5 +89,6 @@ public class ShippingZone {
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
 
+    public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

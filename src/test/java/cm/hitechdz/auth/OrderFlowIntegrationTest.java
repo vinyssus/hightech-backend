@@ -210,14 +210,16 @@ class OrderFlowIntegrationTest {
                 Map.of("sku", "V-256", "capacity", "256 Go", "priceDelta", 20_000, "stock", 2))))
                 .andExpect(status().isOk());
 
-        // Zones créées inactives : rien n'est proposé tant que l'admin ne les a pas validées
+        // Zones initiales actives (tarifs de la boutique) ; l'admin peut les modifier
         mvc.perform(get("/api/checkout/options"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currency").value("XAF"))
-                .andExpect(jsonPath("$.shippingZones.length()").value(0));
+                .andExpect(jsonPath("$.shippingZones.length()").value(4));
         send(get("/api/admin/shipping-zones"), admin, null)
                 .andExpect(jsonPath("$.length()").value(4))
-                .andExpect(jsonPath("$[0].active").value(false));
+                .andExpect(jsonPath("$[0].active").value(true))
+                .andExpect(jsonPath("$[0].createdAt").exists());
+        send(patch("/api/admin/shipping-zones/yaounde"), admin, Map.of("active", false)).andExpect(status().isOk());
         send(get("/api/admin/shipping-zones"), customerA, null).andExpect(status().isForbidden());
 
         send(put("/api/admin/shipping-zones/douala"), admin, Map.of("label", "Douala", "fee", 2000,
@@ -232,8 +234,8 @@ class OrderFlowIntegrationTest {
                 .andExpect(jsonPath("$.shippingZones[0].id").value("douala"))
                 .andExpect(jsonPath("$.shippingZones[0].fee").value(2000))
                 .andExpect(jsonPath("$.shippingZones[0].delay").value("24 à 48 h"))
-                .andExpect(jsonPath("$.shippingZones[1].codAllowed").value(false))
-                .andExpect(jsonPath("$.shippingZones[1].requiresCity").value(true))
+                .andExpect(jsonPath("$.shippingZones[2].codAllowed").value(false))
+                .andExpect(jsonPath("$.shippingZones[2].requiresCity").value(true))
                 .andExpect(jsonPath("$.freeShippingFrom").doesNotExist())
                 .andExpect(jsonPath("$.paymentMethods", hasItems("CASH_ON_DELIVERY", "ORANGE_MONEY", "MTN_MOMO")));
     }
@@ -287,7 +289,7 @@ class OrderFlowIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.zoneId").exists());
         b.put("zoneId", "autre");
         send(post("/api/checkout/quote"), null, b).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.city").value("Indiquez votre ville."));
+                .andExpect(jsonPath("$.fieldErrors.city").value("Indiquez votre ville"));
         b.put("city", "Bafoussam");
         send(post("/api/checkout/quote"), null, b).andExpect(status().isOk()).andExpect(jsonPath("$.shipping").value(5000));
     }

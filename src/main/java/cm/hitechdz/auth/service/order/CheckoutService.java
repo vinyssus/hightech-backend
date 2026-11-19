@@ -100,7 +100,7 @@ public class CheckoutService {
     /** Ville obligatoire pour la zone « autres villes » ; sinon le libellé de la zone fait office de ville. */
     static String requireCity(ShippingZone zone, String city, String field) {
         if (zone.isRequiresCity() && (city == null || city.isBlank())) {
-            String msg = "Indiquez votre ville.";
+            String msg = "Indiquez votre ville";
             throw new ApiException(HttpStatus.BAD_REQUEST, msg, Map.of(field, msg));
         }
         return city == null || city.isBlank() ? null : city.trim();

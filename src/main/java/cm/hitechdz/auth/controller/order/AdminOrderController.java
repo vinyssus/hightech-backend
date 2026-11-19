@@ -8,6 +8,7 @@ import cm.hitechdz.auth.dto.order.PromoDto;
 import cm.hitechdz.auth.dto.order.PromoRequest;
 import cm.hitechdz.auth.dto.order.ShippingZoneDto;
 import cm.hitechdz.auth.dto.order.ShippingZoneRequest;
+import cm.hitechdz.auth.dto.order.ZoneReorderRequest;
 import cm.hitechdz.auth.dto.order.ShopSettingsDto;
 import cm.hitechdz.auth.dto.order.StatusUpdateRequest;
 import cm.hitechdz.auth.security.AuthenticatedUser;
@@ -16,6 +17,7 @@ import cm.hitechdz.auth.service.order.PromoService;
 import cm.hitechdz.auth.service.order.ShopConfigService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -126,10 +128,16 @@ public class AdminOrderController {
         return config.updateZone(id, request);
     }
 
+    /** 204 si la zone est supprimée ; 200 + zone désactivée si des commandes l'utilisent. */
     @DeleteMapping("/shipping-zones/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteZone(@PathVariable String id) {
-        config.deleteZone(id);
+    public ResponseEntity<ShippingZoneDto> deleteZone(@PathVariable String id) {
+        return config.deleteZone(id).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PatchMapping("/shipping-zones/reorder")
+    public List<ShippingZoneDto> reorderZones(@Valid @RequestBody ZoneReorderRequest request) {
+        return config.reorderZones(request.ids());
     }
 
     // ------------------------------------------------------------------ réglages

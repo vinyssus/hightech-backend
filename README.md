@@ -481,3 +481,17 @@ curl -s -X PUT $API/api/admin/promo-popup/settings -H "$T" -H 'Content-Type: app
 - `POST /api/orders/lookup` (public) `{ "number": "HD-XXXXXXXX", "phone": "677123456" }` → `{ "guestAccessToken": "…" }`
   à envoyer dans `X-Guest-Order-Token` ; 404 générique sinon ; 5 essais / 15 min par IP (429 + `Retry-After`).
   Chaque recherche crée un nouveau jeton (90 jours) sans invalider les précédents.
+
+## Logo automatique sur les photos produits
+
+Les nouvelles photos produits reçoivent le logo HITECH DZ à leur arrivée sur Cloudinary (image stockée avec le logo).
+Le logo par défaut (`src/main/resources/branding/hitech-dz-logo.png`, PNG transparent) est envoyé sur Cloudinary
+(`hitech-dz/brand/watermark-default`) au premier usage. Les logos de marques et les photos déjà en ligne ne sont pas modifiés.
+
+- Envoi d'images produits : `POST /api/admin/uploads/images`, `POST /api/admin/uploads`, `POST /api/admin/products/{id}/images`
+  acceptent `?watermark=false` pour une photo qui a déjà le logo (défaut : `true`).
+- Réglages (ADMIN) : `GET/PUT /api/admin/watermark`
+  `{"enabled":true,"position":"SOUTH_EAST","widthPercent":33,"marginPercent":3,"opacity":100}` (positions : SOUTH_EAST,
+  SOUTH_WEST, SOUTH, NORTH_EAST, NORTH_WEST, CENTER ; taille 10–60 % ; marge 0–10 % ; opacité 20–100 %).
+- `POST /api/admin/watermark/logo` (multipart `file`, PNG/WebP transparent, ≥ 300 px, ≤ 2 Mo) remplace le logo ;
+  `DELETE /api/admin/watermark/logo` revient au logo HITECH DZ intégré.

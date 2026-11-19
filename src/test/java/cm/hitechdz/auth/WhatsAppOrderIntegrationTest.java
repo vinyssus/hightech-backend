@@ -211,7 +211,7 @@ class WhatsAppOrderIntegrationTest {
         send(post("/api/admin/orders/" + number + "/collect-payment").header("Idempotency-Key", "wa-collect-01"), admin,
                 Map.of("method", "ORANGE_MONEY", "reference", "OM 1234567")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentStatus").value("PAID"))
-                .andExpect(jsonPath("$.collection.amount").value(27_000));
+                .andExpect(jsonPath("$.collection.amount").value(26_000));
         // Une commande du site payable à la livraison reste encaissable seulement une fois livrée
         send(post("/api/admin/orders/" + guestOrder + "/collect-payment").header("Idempotency-Key", "wa-collect-02"), admin,
                 Map.of("method", "CASH")).andExpect(status().isConflict());

@@ -8,6 +8,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 /** Zone de livraison gérée dans l'admin. Seules les zones actives sont proposées aux clients. */
 @Entity
@@ -53,13 +54,14 @@ public class ShippingZone {
 
     @PrePersist
     void created() {
-        createdAt = Instant.now();
+        // Précision de la base (microseconde) : la réponse est identique à la valeur enregistrée
+        createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         updatedAt = createdAt;
     }
 
     @PreUpdate
     void touch() {
-        updatedAt = Instant.now();
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public String getId() { return id; }

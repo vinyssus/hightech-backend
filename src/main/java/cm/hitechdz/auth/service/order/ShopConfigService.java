@@ -112,7 +112,7 @@ public class ShopConfigService {
         z.setId(id);
         z.setActive(true);
         apply(z, req);
-        validate(z, errors);
+        validate(z, null, errors);
         if (zoneRepository.existsById(id)) {
             throw new ApiException(HttpStatus.CONFLICT, "Cette zone existe déjà.", Map.of("id", "Cette zone existe déjà."));
         }
@@ -125,7 +125,7 @@ public class ShopConfigService {
         ShippingZone z = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, ZONE_NOT_FOUND));
         apply(z, req);
-        validate(z, new LinkedHashMap<>());
+        validate(z, z.getId(), new LinkedHashMap<>());
         zoneRepository.flush();
         return toDto(z);
     }
@@ -203,8 +203,11 @@ public class ShopConfigService {
         if (req.position() != null) z.setPosition(req.position());
     }
 
-    /** Règles d'une zone complète (création comme modification), puis unicité du libellé (409). */
-    private void validate(ShippingZone z, Map<String, String> errors) {
+    /**
+     * Règles d'une zone complète (création comme modification), puis unicité du libellé (409).
+     * selfId : zone modifiée (null à la création, où aucune zone existante n'est exclue).
+     */
+    private void validate(ShippingZone z, String selfId, Map<String, String> errors) {
         String label = z.getLabel();
         if (label == null || label.isBlank()) {
             errors.put("label", "Le libellé est obligatoire.");
@@ -228,7 +231,7 @@ public class ShopConfigService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Veuillez corriger les champs indiqués.", errors);
         }
         boolean duplicate = zoneRepository.findByLabelIgnoreCase(label).stream()
-                .anyMatch(other -> !other.getId().equals(z.getId()));
+                .anyMatch(other -> !other.getId().equals(selfId));
         if (duplicate) {
             String msg = "Une zone porte déjà ce libellé.";
             throw new ApiException(HttpStatus.CONFLICT, msg, Map.of("label", msg));

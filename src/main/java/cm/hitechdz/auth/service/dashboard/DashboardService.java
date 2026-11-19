@@ -18,6 +18,7 @@ import cm.hitechdz.auth.service.catalog.CatalogMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +64,7 @@ public class DashboardService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
 
+    @Autowired
     public DashboardService(NamedParameterJdbcTemplate jdbc) {
         this(jdbc, Clock.systemUTC());
     }

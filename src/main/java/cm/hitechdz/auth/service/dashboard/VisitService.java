@@ -46,7 +46,7 @@ public class VisitService {
                 .addValue("hash", Tokens.sha256(day + "|" + visitorId.trim()));
         try {
             // Hors transaction : un doublon (déjà compté aujourd'hui) n'affecte aucune autre requête
-            return jdbc.update("insert into site_visits (day, visitor_hash) values (:day, :hash)", p) > 0;
+            return jdbc.update("insert into site_visits (visit_day, visitor_hash) values (:day, :hash)", p) > 0;
         } catch (DuplicateKeyException e) {
             return false;
         }

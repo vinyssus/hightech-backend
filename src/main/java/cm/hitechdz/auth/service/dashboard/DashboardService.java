@@ -307,7 +307,7 @@ public class DashboardService {
 
     // ------------------------------------------------------------------ visites
     private long visits(LocalDate from, LocalDate to) {
-        Long n = jdbc.queryForObject("select count(*) from site_visits where day >= :from and day <= :to",
+        Long n = jdbc.queryForObject("select count(*) from site_visits where visit_day >= :from and visit_day <= :to",
                 new MapSqlParameterSource("from", java.sql.Date.valueOf(from)).addValue("to", java.sql.Date.valueOf(to)), Long.class);
         return n == null ? 0 : n;
     }

@@ -5,9 +5,9 @@
 -- navigateur) : ni IP, ni compte, ni donnée personnelle ; impossible de suivre un visiteur d'un
 -- jour à l'autre.
 CREATE TABLE site_visits (
-    day          DATE        NOT NULL,
+    visit_day    DATE        NOT NULL,
     visitor_hash VARCHAR(64) NOT NULL,
-    PRIMARY KEY (day, visitor_hash)
+    PRIMARY KEY (visit_day, visitor_hash)
 );
 
 -- Statistiques par période de création des commandes

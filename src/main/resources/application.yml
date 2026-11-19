@@ -101,10 +101,12 @@ app:
   payments:
     # none (défaut : seul le paiement à la livraison est proposé) | loov | sandbox (tests uniquement)
     provider: ${PAYMENT_PROVIDER:none}
+    # Loov API v2 : une seule clé API (Bearer). LOOV_APP_KEY est accepté pour compatibilité.
     loov:
-      app-key: ${LOOV_APP_KEY:}
-      merchant-key: ${LOOV_MERCHANT_KEY:}
-      base-url: ${LOOV_BASE_URL:https://api.secure.payment.loov-solutions.com/v1}
+      api-key: ${LOOV_API_KEY:${LOOV_APP_KEY:}}
+      # Secret de signature des notifications (Loov-Signature). Sans lui, chaque notification est revérifiée chez Loov.
+      webhook-secret: ${LOOV_WEBHOOK_SECRET:}
+      base-url: ${LOOV_BASE_URL:https://api.secure.payment.loov-solutions.com/v2}
     sandbox:
       # Secret HMAC (16 caractères minimum) des notifications simulées. Jamais en production.
       secret: ${PAYMENT_SANDBOX_SECRET:}

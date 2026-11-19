@@ -61,10 +61,13 @@ public class PaymentService {
     private final OrderLifecycle lifecycle;
     private final TransactionTemplate tx;
 
+    private final cm.hitechdz.auth.repository.UserRepository userRepository;
+
     public PaymentService(PaymentProviders providers, PaymentRepository paymentRepository,
                           PaymentWebhookEventRepository webhookEventRepository, CustomerOrderRepository orderRepository,
                           ShippingZoneRepository zoneRepository, ShopConfigService config, OrderLifecycle lifecycle,
-                          PlatformTransactionManager txManager) {
+                          PlatformTransactionManager txManager, cm.hitechdz.auth.repository.UserRepository userRepository) {
+        this.userRepository = userRepository;
         this.providers = providers;
         this.paymentRepository = paymentRepository;
         this.webhookEventRepository = webhookEventRepository;
@@ -112,6 +115,18 @@ public class PaymentService {
         }
         PaymentProvider provider = providers.active()
                 .orElseThrow(() -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE, UNAVAILABLE));
+        if (order.getTotal() < provider.minimumAmount()) {
+            throw new ApiException(HttpStatus.CONFLICT, "Le paiement mobile est possible à partir de "
+                    + provider.minimumAmount() + " FCFA. Choisissez le paiement à la livraison.");
+        }
+        String customerEmail = order.getDeliveryEmail();
+        if ((customerEmail == null || customerEmail.isBlank()) && order.getUserId() != null) {
+            customerEmail = userRepository.findById(order.getUserId()).map(u -> u.getEmail()).orElse(null);
+        }
+        if (customerEmail == null || customerEmail.isBlank()) {
+            String msg = "Une adresse e-mail est nécessaire pour le paiement mobile. Choisissez le paiement à la livraison ou contactez-nous.";
+            throw new ApiException(HttpStatus.CONFLICT, msg);
+        }
         for (Payment pending : paymentRepository.findPendingByOrder(order.getId())) {
             refreshLocked(pending, true);
             if (pending.getStatus() == Payment.Status.PENDING) {
@@ -138,7 +153,7 @@ public class PaymentService {
         p.setRequestHash(requestHash);
         p.setExpiresAt(Instant.now().plus(paymentWindow));
 
-        PaymentProvider.InitResult result = provider.initiate(p, order.getDeliveryName(), order.getDeliveryEmail());
+        PaymentProvider.InitResult result = provider.initiate(p, order.getDeliveryName(), customerEmail);
         p.setProviderReference(result.providerReference());
         p.setStatus(result.status());
         p.setMessage(result.message());
@@ -172,6 +187,34 @@ public class PaymentService {
             refreshLocked(locked, false);
             p = locked;
         }
+        return OrderMapper.toPaymentStatus(p);
+    }
+
+    // ------------------------------------------------------------------ mode test
+    /**
+     * Termine un paiement de TEST chez le prestataire (outcome : succeeded ou failed), puis relit son statut.
+     * Possible uniquement avec une clé de test : avec une clé de production, le prestataire refuse (409).
+     */
+    @Transactional
+    public PaymentStatusResponse simulateTest(String paymentId, String outcome) {
+        String o = outcome == null ? "" : outcome.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!o.equals("succeeded") && !o.equals("failed")) {
+            String msg = "Résultat invalide : succeeded ou failed.";
+            throw new ApiException(HttpStatus.BAD_REQUEST, msg, Map.of("outcome", msg));
+        }
+        Payment p0 = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Paiement introuvable."));
+        orderRepository.findByIdForUpdate(p0.getOrder().getId());
+        Payment p = paymentRepository.findByIdForUpdate(paymentId).orElseThrow();
+        if (p.getStatus() != Payment.Status.PENDING || p.getProviderReference() == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Ce paiement n'est plus en attente.");
+        }
+        PaymentProvider provider = providers.byName(p.getProvider()).orElse(null);
+        if (!(provider instanceof TestSimulation simulation)) {
+            throw new ApiException(HttpStatus.CONFLICT, "La simulation n'est disponible qu'avec Loov en mode test.");
+        }
+        simulation.simulate(p.getProviderReference(), o);
+        refreshLocked(p, true);
         return OrderMapper.toPaymentStatus(p);
     }
 

@@ -306,8 +306,9 @@ curl -si -X OPTIONS $API/api/orders -H 'Origin: https://hitech-dz-commerce-suite
 | Variable | Rôle |
 |---|---|
 | `PAYMENT_PROVIDER` | `none` (défaut : paiement à la livraison seulement), `loov` (production), `sandbox` (tests, **jamais en production**) |
-| `LOOV_APP_KEY`, `LOOV_MERCHANT_KEY` | clés Loov (espace marchand) |
-| `LOOV_BASE_URL` | facultatif, défaut `https://api.secure.payment.loov-solutions.com/v1` |
+| `LOOV_API_KEY` | clé API Loov v2 (Développeurs → clé de test ou de production ; `LOOV_APP_KEY` accepté aussi) |
+| `LOOV_WEBHOOK_SECRET` | secret de signature des notifications Loov (fortement recommandé) |
+| `LOOV_BASE_URL` | facultatif, défaut `https://api.secure.payment.loov-solutions.com/v2` |
 | `APP_PUBLIC_BASE_URL` | `https://hightech-backend.onrender.com` (adresse de notification envoyée à Loov) |
 | `PAYMENT_SANDBOX_SECRET` | ≥ 16 caractères, uniquement avec `sandbox` |
 | `PAYMENT_SANDBOX_ALLOWED` | doit valoir `true` en plus du secret pour activer le sandbox ; ne jamais le définir sur Render |
@@ -495,3 +496,14 @@ Le logo par défaut (`src/main/resources/branding/hitech-dz-logo.png`, PNG trans
   SOUTH_WEST, SOUTH, NORTH_EAST, NORTH_WEST, CENTER ; taille 10–60 % ; marge 0–10 % ; opacité 20–100 %).
 - `POST /api/admin/watermark/logo` (multipart `file`, PNG/WebP transparent, ≥ 300 px, ≤ 2 Mo) remplace le logo ;
   `DELETE /api/admin/watermark/logo` revient au logo HITECH DZ intégré.
+
+## Loov API v2
+
+- Une seule clé (`Authorization: Bearer`), `POST /v2/payments` (Idempotency-Key = id du paiement, `merchant_reference` = id du
+  paiement), statut `GET /v2/payments/{reference}` : pending/processing → en attente, succeeded, failed, expired.
+- Notifications sur `https://hightech-backend.onrender.com/api/payments/webhooks/loov` : avec `LOOV_WEBHOOK_SECRET`, la signature
+  `Loov-Signature` (HMAC-SHA256 de `t.corps`) est vérifiée et refusée au-delà de 5 minutes ; sans secret, le statut est relu chez Loov.
+  Montant et devise toujours comparés à la commande, anti-rejeu par référence + statut.
+- Paiement mobile à partir de 200 FCFA ; l'e-mail du client est exigé (commande invitée : champ `delivery.email`).
+- Mode test (clé de test, `livemode: false`) : `POST /api/admin/payments/{paymentId}/simulate` `{"outcome":"succeeded"|"failed"}`
+  termine le paiement chez Loov puis met la commande à jour. Refusé par Loov avec une clé de production.

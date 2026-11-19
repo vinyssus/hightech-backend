@@ -120,6 +120,9 @@ public class OrderService {
             errors.put("paymentMethod", "Le paiement à la livraison n'est pas disponible pour cette zone.");
         } else if (method.online() && !config.onlinePaymentAvailable()) {
             errors.put("paymentMethod", "Le paiement en ligne n'est pas encore disponible. Choisissez le paiement à la livraison.");
+        } else if (method.online() && userId == null && (d.email() == null || d.email().isBlank())) {
+            // Le prestataire (Loov) exige l'e-mail du client ; un client connecté utilise celui de son compte
+            errors.put("delivery.email", "Indiquez votre e-mail pour payer par Orange Money ou MTN MoMo.");
         }
         if (!errors.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Certains champs sont invalides.", errors);

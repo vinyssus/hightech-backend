@@ -27,6 +27,11 @@ public interface PaymentProvider {
      */
     VerifiedEvent verifyWebhook(Map<String, String> headers, String rawBody);
 
+    /** Montant minimum accepté par le prestataire (en unités de la devise). */
+    default long minimumAmount() {
+        return 1;
+    }
+
     record InitResult(String providerReference, Payment.Status status, String message, String checkoutUrl) {}
 
     record ProviderStatus(Payment.Status status, Long amount, String currency, String message) {}

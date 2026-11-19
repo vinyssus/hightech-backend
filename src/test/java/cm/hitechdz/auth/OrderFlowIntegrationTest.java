@@ -716,4 +716,25 @@ class OrderFlowIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/checkout/quote']").exists());
         mvc.perform(get("/api/checkout/options")).andExpect(jsonPath("$.paymentMethods", not(hasItems("CASH"))));
     }
+
+    // ------------------------------------------------------------------ 18. e-mail requis et simulation (Loov v2)
+    @Test @Order(18)
+    void online_payment_requires_email_and_simulation_is_admin_only() throws Exception {
+        List<Map<String, Object>> items = List.of(item(p1, null, 1));
+        JsonNode q = quote(null, items, "douala", null, null);
+        Map<String, Object> d = delivery("douala", null, "Akwa");
+        d.put("email", "");
+        order(null, UUID.randomUUID().toString(), orderBody(q.get("quoteId").asText(), items, null, d, "ORANGE_MONEY"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['delivery.email']").value("Indiquez votre e-mail pour payer par Orange Money ou MTN MoMo."));
+
+        send(post("/api/admin/payments/" + paymentId + "/simulate"), customerA, Map.of("outcome", "succeeded"))
+                .andExpect(status().isForbidden());
+        send(post("/api/admin/payments/" + paymentId + "/simulate"), admin, Map.of("outcome", "gagné"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors.outcome").exists());
+        send(post("/api/admin/payments/pay_inconnu/simulate"), admin, Map.of("outcome", "succeeded"))
+                .andExpect(status().isNotFound());
+        send(post("/api/admin/payments/" + paymentId + "/simulate"), admin, Map.of("outcome", "succeeded"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value("Ce paiement n'est plus en attente."));
+    }
 }

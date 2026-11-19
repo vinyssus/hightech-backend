@@ -60,7 +60,9 @@ src/main/resources/
 
 Remarques :
 - Le rate limiter est en mémoire : suffisant pour une instance. En multi-instances, passer à Redis/Bucket4j.
-- Derrière nginx, mettre `FORWARD_HEADERS_STRATEGY=native` pour que le rate limiting voie l'IP réelle.
+- Sur Render (ou derrière nginx), mettre `FORWARD_HEADERS_STRATEGY=native` pour que les limites anti-abus voient l'IP réelle.
+- Relais du site (`/backend`) : le relais envoie `X-Client-IP` + `X-Relay-Secret`. Avec `RELAY_SECRET` (≥ 32 caractères,
+  même valeur côté Vercel/Lovable), chaque visiteur garde sa propre limite ; sans le bon secret, `X-Client-IP` est ignoré.
 - `/refresh` renvoie `{ user, accessToken, refreshToken }` (le `user` en plus du couple de tokens
   permet au frontend de rafraîchir aussi l'état utilisateur).
 

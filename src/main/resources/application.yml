@@ -53,6 +53,10 @@ spring:
       mail.smtp.starttls.enable: true
 
 app:
+  relay:
+    # Secret partagé avec le relais du site (/backend, variable RELAY_SECRET côté Vercel/Lovable) :
+    # l'en-tête X-Client-IP n'est pris en compte qu'avec ce secret. Au moins 32 caractères.
+    secret: ${RELAY_SECRET:}
   jwt:
     # Clé HMAC encodée en Base64, au moins 32 octets (256 bits).
     # Générer avec : openssl rand -base64 48

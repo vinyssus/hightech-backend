@@ -151,7 +151,7 @@ class WatermarkIntegrationTest {
     @Test @Order(3)
     void opt_out_per_upload_and_brand_logos_never_get_it() throws Exception {
         uploadProductImage("/api/admin/uploads/images", admin, false).andExpect(status().isCreated());
-        verify(storage).upload(any(), eq("hitech-dz/tmp"), isNull());
+        verify(storage).upload(any(), eq(ImageStorageService.TMP_FOLDER), isNull());
         send(multipart("/api/admin/brands").file(new MockMultipartFile("logo", "hik.png", "image/png", image("png", 400, 400)))
                 .param("name", "Hikvision"), admin, null).andExpect(status().isCreated());
         verify(storage).upload(any(), eq("hitech-dz/brands"), isNull());
@@ -176,7 +176,7 @@ class WatermarkIntegrationTest {
         send(put("/api/admin/watermark"), admin, Map.of("enabled", false, "position", "SOUTH_EAST", "widthPercent", 33,
                 "marginPercent", 3, "opacity", 100)).andExpect(status().isOk()).andExpect(jsonPath("$.enabled").value(false));
         uploadProductImage("/api/admin/uploads/images", admin, null).andExpect(status().isCreated());
-        verify(storage).upload(any(), eq("hitech-dz/tmp"), isNull());
+        verify(storage).upload(any(), eq(ImageStorageService.TMP_FOLDER), isNull());
         send(put("/api/admin/watermark"), admin, Map.of("enabled", true, "position", "SOUTH_EAST", "widthPercent", 33,
                 "marginPercent", 3, "opacity", 100)).andExpect(status().isOk());
     }

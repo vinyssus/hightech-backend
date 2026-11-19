@@ -47,6 +47,7 @@ public class SecurityConfig {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/cart/validate",
+            "/api/analytics/visit",
             "/api/checkout/quote",
             "/api/orders",
             "/api/orders/lookup",

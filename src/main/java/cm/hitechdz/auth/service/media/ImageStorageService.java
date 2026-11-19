@@ -17,8 +17,16 @@ public interface ImageStorageService {
     String BRANDS_FOLDER = ROOT_FOLDER + "/brands";
     String BANNERS_FOLDER = ROOT_FOLDER + "/banners";
     String PROMO_POPUP_FOLDER = ROOT_FOLDER + "/promo-popup";
+    String BRAND_FOLDER = ROOT_FOLDER + "/brand";
 
-    StoredImage upload(MultipartFile file, String folder);
+    /**
+     * Envoi d'une image produit ou de marque (1200 px maximum). watermark non null : logo incrusté
+     * à l'arrivée sur Cloudinary, l'image stockée contient donc déjà le logo.
+     */
+    StoredImage upload(MultipartFile file, String folder, Watermark watermark);
+
+    /** Envoi d'un fichier de la marque (logo) sous un identifiant fixe, sans transformation. */
+    StoredImage uploadBrandAsset(byte[] bytes, String publicId);
 
     /**
      * Envoi d'une affiche telle quelle (pas de redimensionnement, contrairement aux produits) :

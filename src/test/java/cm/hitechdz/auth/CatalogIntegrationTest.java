@@ -92,7 +92,9 @@ class CatalogIntegrationTest {
 
     @BeforeEach
     void mockStorage() {
-        when(storage.upload(any(), anyString())).thenAnswer(inv -> {
+        when(storage.uploadBrandAsset(any(), anyString())).thenAnswer(inv -> new StoredImage(
+                "https://res.cloudinary.com/demo/image/upload/v1/" + inv.getArgument(1) + ".png", inv.getArgument(1), 821, 340));
+        when(storage.upload(any(), anyString(), any())).thenAnswer(inv -> {
             String folder = inv.getArgument(1);
             int n = UPLOADS.incrementAndGet();
             return new StoredImage("https://res.cloudinary.com/demo/image/upload/v1/" + folder + "/img" + n + ".png",
@@ -417,7 +419,7 @@ class CatalogIntegrationTest {
         mvc.perform(multipart("/api/admin/uploads/images").file(huge).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("L'image dépasse 5 Mo."));
-        verify(storage, never()).upload(any(), anyString());
+        verify(storage, never()).upload(any(), anyString(), any());
 
         MockMultipartFile ok = new MockMultipartFile("files", "routeur.png", "image/png", png(2048));
         JsonNode uploaded = body(mvc.perform(multipart("/api/admin/uploads/images").file(ok)
@@ -764,7 +766,7 @@ class CatalogIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.slug").value("lenovo"))
                 .andExpect(jsonPath("$.logo").value(org.hamcrest.Matchers.containsString("hitech-dz/brands/")));
-        verify(storage).upload(any(), org.mockito.ArgumentMatchers.eq("hitech-dz/brands"));
+        verify(storage).upload(any(), org.mockito.ArgumentMatchers.eq("hitech-dz/brands"), org.mockito.ArgumentMatchers.isNull());
 
         // Multipart sans fichier : marque créée sans logo
         mvc.perform(multipart("/api/admin/brands").param("name", "Asus").header("Authorization", "Bearer " + admin))

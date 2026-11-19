@@ -116,14 +116,16 @@ public class AdminCatalogController {
     // ------------------------------------------------------------------ images
     @PostMapping(path = "/uploads/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public List<UploadedImage> upload(@RequestPart(name = "files", required = false) List<MultipartFile> files) {
-        return products.uploadTmp(files);
+    public List<UploadedImage> upload(@RequestPart(name = "files", required = false) List<MultipartFile> files,
+                                      @RequestParam(name = "watermark", defaultValue = "true") boolean watermark) {
+        return products.uploadTmp(files, watermark);
     }
 
     @PostMapping(path = "/products/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public AdminProduct addImages(@PathVariable String id,
-                                  @RequestPart(name = "files", required = false) List<MultipartFile> files) {
-        return products.addImages(id, files);
+                                  @RequestPart(name = "files", required = false) List<MultipartFile> files,
+                                  @RequestParam(name = "watermark", defaultValue = "true") boolean watermark) {
+        return products.addImages(id, files, watermark);
     }
 
     @PutMapping("/products/{id}/images/order")

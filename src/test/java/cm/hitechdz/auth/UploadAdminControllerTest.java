@@ -57,7 +57,9 @@ class UploadAdminControllerTest {
 
     @BeforeEach
     void mockStorage() {
-        when(storage.upload(any(), anyString())).thenAnswer(inv -> {
+        when(storage.uploadBrandAsset(any(), anyString())).thenAnswer(inv -> new StoredImage(
+                "https://res.cloudinary.com/demo/image/upload/v1/" + inv.getArgument(1) + ".png", inv.getArgument(1), 821, 340));
+        when(storage.upload(any(), anyString(), any())).thenAnswer(inv -> {
             String original = ((org.springframework.web.multipart.MultipartFile) inv.getArgument(0)).getOriginalFilename();
             String name = original.substring(0, original.lastIndexOf('.'));
             String folder = inv.getArgument(1);
@@ -116,7 +118,7 @@ class UploadAdminControllerTest {
                 .andExpect(jsonPath("$.urls.length()").value(1))
                 .andExpect(jsonPath("$.urls[0]").value(
                         "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/hitech-dz/products/one.png"));
-        verify(storage).upload(any(), eq("hitech-dz/products"));
+        verify(storage).upload(any(), eq("hitech-dz/products"), any());
 
         String body = mvc.perform(upload(admin,
                         file("a.png", "image/png", png(100)),
@@ -152,7 +154,7 @@ class UploadAdminControllerTest {
         String customer = token("client.upload@example.cm", true);
         mvc.perform(upload(customer, file("a.png", "image/png", png(100))))
                 .andExpect(status().isForbidden());
-        verify(storage, never()).upload(any(), anyString());
+        verify(storage, never()).upload(any(), anyString(), any());
     }
 
     @Test
@@ -182,14 +184,14 @@ class UploadAdminControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Aucun fichier reçu."));
 
-        verify(storage, never()).upload(any(), anyString());
+        verify(storage, never()).upload(any(), anyString(), any());
     }
 
     @Test
     void cloudinary_failure_gives_502() throws Exception {
         String admin = token("admin@hitech-dz.cm", false);
         doThrow(new ApiException(HttpStatus.BAD_GATEWAY, "L'envoi de l'image a échoué. Réessayez."))
-                .when(storage).upload(any(), anyString());
+                .when(storage).upload(any(), anyString(), any());
         mvc.perform(upload(admin, file("a.png", "image/png", png(100))))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.message").value("L'envoi de l'image a échoué. Réessayez."));

@@ -32,22 +32,59 @@ public class CloudinaryImageStorageService implements ImageStorageService {
     }
 
     @Override
-    public StoredImage upload(MultipartFile file, String folder) {
+    public StoredImage upload(MultipartFile file, String folder, Watermark watermark) {
         Cloudinary cloudinary = client();
         Map<String, Object> options = new HashMap<>();
         options.put("folder", folder);
         options.put("resource_type", "image");
         options.put("unique_filename", true);
         options.put("overwrite", false);
-        // Transformation à l'arrivée : 1200x1200 maximum, qualité automatique.
+        // Transformation à l'arrivée : 1200x1200 maximum, qualité automatique, logo éventuel.
         // Le format (WebP/AVIF) est choisi à la diffusion via f_auto (voir CatalogMapper).
-        options.put("transformation", new Transformation().width(1200).height(1200).crop("limit").quality("auto"));
+        options.put("transformation", incomingTransformation(watermark));
         try {
             Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), options);
             return toStoredImage(result);
         } catch (IOException | RuntimeException | LinkageError e) {
             // LinkageError : incompatibilité de bibliothèque, à journaliser plutôt que de renvoyer une 500 opaque
             log.error("Échec d'envoi Cloudinary dans {} : {}", folder, e.toString(), e);
+            throw new ApiException(HttpStatus.BAD_GATEWAY, UPLOAD_FAILED);
+        }
+    }
+
+    /**
+     * 1200 px maximum, puis logo : largeur relative à l'image (fl_relative), placé avec une marge relative
+     * (x/y décimaux = fraction des dimensions de l'image), opacité en %.
+     */
+    static Transformation incomingTransformation(Watermark watermark) {
+        Transformation t = new Transformation().width(1200).height(1200).crop("limit").quality("auto");
+        if (watermark == null) {
+            return t;
+        }
+        t = t.chain().overlay(watermark.logoPublicId().replace('/', ':')).flags("relative")
+                .width(watermark.widthRatio());
+        if (watermark.opacity() < 100) {
+            t = t.opacity(watermark.opacity());
+        }
+        t = t.chain().flags("layer_apply").gravity(watermark.gravity());
+        if (watermark.marginRatio() > 0 && !"center".equals(watermark.gravity())) {
+            t = t.x(watermark.marginRatio()).y(watermark.marginRatio());
+        }
+        return t;
+    }
+
+    @Override
+    public StoredImage uploadBrandAsset(byte[] bytes, String publicId) {
+        Cloudinary cloudinary = client();
+        Map<String, Object> options = new HashMap<>();
+        options.put("public_id", publicId);
+        options.put("resource_type", "image");
+        options.put("overwrite", true);
+        options.put("invalidate", true);
+        try {
+            return toStoredImage(cloudinary.uploader().upload(bytes, options));
+        } catch (IOException | RuntimeException | LinkageError e) {
+            log.error("Échec d'envoi Cloudinary du fichier {} : {}", publicId, e.toString(), e);
             throw new ApiException(HttpStatus.BAD_GATEWAY, UPLOAD_FAILED);
         }
     }

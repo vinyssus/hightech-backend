@@ -43,6 +43,12 @@ public class ImageUploadService {
 
     /** Valide puis envoie les fichiers. Tout est validé avant le premier envoi. */
     public List<StoredImage> uploadAll(List<MultipartFile> files, String folder, int alreadyAttached) {
+        return uploadAll(files, folder, alreadyAttached, null);
+    }
+
+    /** watermark non null : logo incrusté dans chaque image (voir WatermarkService). */
+    public List<StoredImage> uploadAll(List<MultipartFile> files, String folder, int alreadyAttached,
+                                       java.util.function.Supplier<Watermark> watermark) {
         if (files == null || files.isEmpty() || files.stream().allMatch(MultipartFile::isEmpty)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, NO_FILE, Map.of("files", NO_FILE));
         }
@@ -54,16 +60,18 @@ public class ImageUploadService {
         }
         files.forEach(ImageUploadService::validate);
 
+        // Le logo n'est préparé qu'une fois les fichiers validés (rien n'est envoyé si un fichier est refusé)
+        Watermark wm = watermark == null ? null : watermark.get();
         List<StoredImage> stored = new ArrayList<>(files.size());
         for (MultipartFile file : files) {
-            stored.add(storage.upload(file, folder));
+            stored.add(storage.upload(file, folder, wm));
         }
         return stored;
     }
 
     public StoredImage uploadOne(MultipartFile file, String folder) {
         validate(file);
-        return storage.upload(file, folder);
+        return storage.upload(file, folder, null);
     }
 
     static void validate(MultipartFile file) {

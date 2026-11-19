@@ -29,7 +29,8 @@ public class UploadAdminController {
     }
 
     @PostMapping(value = "/api/admin/uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public UploadResponse upload(@RequestParam(name = "files", required = false) List<MultipartFile> files) {
-        return new UploadResponse(products.uploadForForm(files));
+    public UploadResponse upload(@RequestParam(name = "files", required = false) List<MultipartFile> files,
+                                 @RequestParam(name = "watermark", defaultValue = "true") boolean watermark) {
+        return new UploadResponse(products.uploadForForm(files, watermark));
     }
 }

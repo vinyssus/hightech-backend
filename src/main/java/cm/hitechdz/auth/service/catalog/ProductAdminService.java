@@ -72,10 +72,14 @@ public class ProductAdminService {
     private final ImageUploadService uploadService;
     private final ApplicationEventPublisher events;
 
+    private final cm.hitechdz.auth.service.media.WatermarkService watermarkService;
+
     public ProductAdminService(ProductRepository productRepository, ProductVariantRepository variantRepository,
                                OrderItemRepository orderItemRepository, CategoryService categoryService,
                                BrandService brandService, ImageStorageService storage,
-                               ImageUploadService uploadService, ApplicationEventPublisher events) {
+                               ImageUploadService uploadService, ApplicationEventPublisher events,
+                               cm.hitechdz.auth.service.media.WatermarkService watermarkService) {
+        this.watermarkService = watermarkService;
         this.productRepository = productRepository;
         this.variantRepository = variantRepository;
         this.orderItemRepository = orderItemRepository;
@@ -181,25 +185,43 @@ public class ProductAdminService {
     }
 
     // ------------------------------------------------------------------ images
+    private java.util.function.Supplier<cm.hitechdz.auth.service.media.Watermark> logo(boolean watermark) {
+        return watermark ? watermarkService::current : null;
+    }
+
     /** Envoi d'images avant l'enregistrement du produit : dossier tmp, purgé après 24 h si non rattaché. */
     public List<UploadedImage> uploadTmp(List<MultipartFile> files) {
-        return uploadService.uploadAll(files, ImageStorageService.TMP_FOLDER, 0).stream()
+        return uploadTmp(files, true);
+    }
+
+    /** watermark = true : logo HITECH DZ incrusté (si la fonction est activée dans les réglages). */
+    public List<UploadedImage> uploadTmp(List<MultipartFile> files, boolean watermark) {
+        return uploadService.uploadAll(files, ImageStorageService.TMP_FOLDER, 0, logo(watermark)).stream()
                 .map(s -> new UploadedImage(CatalogMapper.deliveryUrl(s.url()), s.publicId(), s.width(), s.height()))
                 .toList();
     }
 
     /** Envoi d'images pour le formulaire produit (POST /api/admin/uploads) : URLs dans l'ordre des fichiers. */
     public List<String> uploadForForm(List<MultipartFile> files) {
-        return uploadService.uploadAll(files, ImageStorageService.PRODUCTS_FOLDER, 0).stream()
+        return uploadForForm(files, true);
+    }
+
+    public List<String> uploadForForm(List<MultipartFile> files, boolean watermark) {
+        return uploadService.uploadAll(files, ImageStorageService.PRODUCTS_FOLDER, 0, logo(watermark)).stream()
                 .map(s -> CatalogMapper.deliveryUrl(s.url()))
                 .toList();
     }
 
     @Transactional
     public AdminProduct addImages(String id, List<MultipartFile> files) {
+        return addImages(id, files, true);
+    }
+
+    @Transactional
+    public AdminProduct addImages(String id, List<MultipartFile> files, boolean watermark) {
         Product p = load(id);
         List<StoredImage> stored = uploadService.uploadAll(files,
-                ImageStorageService.productFolder(p.getSlug()), p.getImages().size());
+                ImageStorageService.productFolder(p.getSlug()), p.getImages().size(), logo(watermark));
         stored.forEach(s -> p.addImage(new ProductImage(s.url(), s.publicId(), s.width(), s.height())));
         productRepository.flush();
         return CatalogMapper.toAdmin(p);

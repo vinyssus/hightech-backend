@@ -525,3 +525,28 @@ Le logo par défaut (`src/main/resources/branding/hitech-dz-logo.png`, PNG trans
 - Paiement mobile à partir de 200 FCFA ; l'e-mail du client est exigé (commande invitée : champ `delivery.email`).
 - Mode test (clé de test, `livemode: false`) : `POST /api/admin/payments/{paymentId}/simulate` `{"outcome":"succeeded"|"failed"}`
   termine le paiement chez Loov puis met la commande à jour. Refusé par Loov avec une clé de production.
+
+## Tableau de bord admin
+
+`GET /api/admin/dashboard?days=7|30|90` (ADMIN, `Cache-Control: no-store`) : tous les chiffres sont calculés à chaque appel
+à partir des commandes réelles, jours du fuseau `Africa/Douala`, période précédente de même durée pour les variations.
+
+| Bloc | Définition |
+|---|---|
+| `summary.orders` / `kpis.orders` | commandes non annulées créées sur la période |
+| `summary.collected` | total des commandes non annulées au paiement `PAID` |
+| `summary.pending` / `summary.delivered` | commandes `PENDING_PAYMENT`/`PENDING_CONFIRMATION` / `DELIVERED` |
+| `kpis.revenue` | total (frais et remises inclus) des commandes non annulées |
+| `kpis.basket` | chiffre d'affaires ÷ commandes (`null` sans commande) |
+| `kpis.conversion` | commandes ÷ visites × 100 (`null` sans visite) ; `delta` en points |
+| `series` | un point par jour : `revenue`, `orders`, `previous` (même jour de la période précédente) |
+| `payments` | répartition du chiffre d'affaires par moyen choisi (orange, mtn, cash) |
+| `categories` | lignes de commandes par catégorie du produit (6 au maximum, puis « Autres ») |
+| `status` | toutes les commandes de la période par groupe (en attente, préparation, livraison, livrées, annulées) |
+| `lowStock` | produits publiés avec un stock ≤ 5 |
+| `top` / `recent` | 5 produits les plus vendus (quantité) / 8 dernières commandes |
+
+`delta` vaut `null` quand la période précédente est vide (aucune variation inventée).
+
+Visites : `POST /api/analytics/visit {"visitorId":"<uuid aléatoire du navigateur>"}` → 204 (public, 30 appels / 10 min / IP).
+Seul `SHA-256(jour|identifiant)` est stocké (table `site_visits`), une fois par jour : ni IP, ni compte, ni suivi d'un jour à l'autre.

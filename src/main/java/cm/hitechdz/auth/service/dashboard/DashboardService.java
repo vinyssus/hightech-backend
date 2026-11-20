@@ -260,7 +260,7 @@ public class DashboardService {
     private LowStock lowStock() {
         List<LowStockItem> rows = jdbc.query("""
                 select id, name, stock from products
-                 where deleted_at is null and status = 'PUBLISHED' and stock <= :threshold
+                 where deleted_at is null and status = 'PUBLISHED' and stock_tracked = TRUE and stock <= :threshold
                  order by stock asc, name asc
                  limit :limit
                 """, new MapSqlParameterSource("threshold", LOW_STOCK_THRESHOLD).addValue("limit", LOW_STOCK_LIMIT),

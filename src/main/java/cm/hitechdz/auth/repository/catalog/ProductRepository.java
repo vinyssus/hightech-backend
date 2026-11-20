@@ -79,7 +79,7 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @Query("""
             select p from Product p
-            where p.deletedAt is null and p.stock <= :threshold
+            where p.deletedAt is null and p.stockTracked = true and p.stock <= :threshold
             order by p.stock asc, p.name asc
             """)
     List<Product> findLowStock(@Param("threshold") int threshold);

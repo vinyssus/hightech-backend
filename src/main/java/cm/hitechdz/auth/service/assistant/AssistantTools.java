@@ -145,7 +145,7 @@ public class AssistantTools {
             r.put("subcategory", p.subcategory());
             r.put("price_fcfa", p.price());
             if (p.oldPrice() != null) r.put("old_price_fcfa", p.oldPrice());
-            r.put("availability", p.stock() <= 0 ? "rupture de stock" : p.stock() <= 3 ? "plus que " + p.stock() : "en stock");
+            r.put("availability", p.stock() == null ? "disponible" : p.stock() <= 0 ? "rupture de stock" : p.stock() <= 3 ? "plus que " + p.stock() : "en stock");
             if (p.reviews() > 0) r.put("rating", p.rating());
             rows.add(r);
         }
@@ -169,7 +169,7 @@ public class AssistantTools {
         out.put("subcategory", d.subcategory());
         out.put("price_fcfa", d.price());
         if (d.oldPrice() != null) out.put("old_price_fcfa", d.oldPrice());
-        out.put("availability", d.stock() <= 0 ? "rupture de stock" : "en stock");
+        out.put("availability", d.stock() == null ? "disponible" : d.stock() <= 0 ? "rupture de stock" : "en stock");
         String desc = d.description() == null ? "" : d.description();
         out.put("description", desc.length() > 1500 ? desc.substring(0, 1500) + "…" : desc);
         out.put("specs", d.specs());

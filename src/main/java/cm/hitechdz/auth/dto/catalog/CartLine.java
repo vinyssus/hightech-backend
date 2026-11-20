@@ -10,7 +10,7 @@ public record CartLine(
         String image,
         long unitPrice,
         Long oldPrice,
-        int stock,
+        Integer stock,
         int qty,
         boolean available,
         @JsonInclude(JsonInclude.Include.NON_NULL) String message

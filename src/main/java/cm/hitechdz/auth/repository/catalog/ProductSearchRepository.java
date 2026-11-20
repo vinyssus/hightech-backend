@@ -163,7 +163,7 @@ public class ProductSearchRepository {
             ps.add(cb.greaterThanOrEqualTo(root.<Double>get("rating"), f.rating()));
         }
         if (f.inStock()) {
-            ps.add(cb.greaterThan(root.<Integer>get("stock"), 0));
+            ps.add(cb.or(cb.greaterThan(root.<Integer>get("stock"), 0), cb.isFalse(root.get("stockTracked"))));
         }
         return ps.toArray(new Predicate[0]);
     }

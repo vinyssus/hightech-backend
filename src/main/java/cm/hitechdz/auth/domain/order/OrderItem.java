@@ -47,6 +47,10 @@ public class OrderItem {
     @Column(nullable = false)
     private int qty;
 
+    /** false : produit à stock non suivi au moment de la commande, rien à remettre en stock. */
+    @Column(name = "stock_decremented", nullable = false)
+    private boolean stockDecremented = true;
+
     protected OrderItem() {}
 
     public OrderItem(String productId, String sku, String name, String variantLabel,
@@ -72,4 +76,6 @@ public class OrderItem {
     public String getImage() { return image; }
     public long getUnitPrice() { return unitPrice; }
     public int getQty() { return qty; }
+    public boolean isStockDecremented() { return stockDecremented; }
+    public void setStockDecremented(boolean v) { this.stockDecremented = v; }
 }

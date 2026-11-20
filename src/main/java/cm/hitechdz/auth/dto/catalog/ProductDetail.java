@@ -17,7 +17,7 @@ public record ProductDetail(
         double rating,
         int reviews,
         String image,
-        int stock,
+        Integer stock,
         @JsonProperty("isNew") boolean isNew,
         int sold,
         List<String> images,

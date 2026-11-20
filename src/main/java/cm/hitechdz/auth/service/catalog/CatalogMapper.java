@@ -50,13 +50,13 @@ public final class CatalogMapper {
     public static ProductSummary toSummary(Product p) {
         return new ProductSummary(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
-                p.getStock(), p.isNewProduct(), p.getSold());
+                p.getDisplayStock(), p.isNewProduct(), p.getSold());
     }
 
     public static ProductDetail toDetail(Product p) {
         return new ProductDetail(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
-                p.getStock(), p.isNewProduct(), p.getSold(),
+                p.getDisplayStock(), p.isNewProduct(), p.getSold(),
                 imageUrls(p), p.getDescription(), specs(p), variantGroups(p), combinations(p));
     }
 
@@ -71,7 +71,7 @@ public final class CatalogMapper {
                 .toList();
         return new AdminProduct(p.getId(), p.getSlug(), p.getName(), brandName(p), categorySlug(p), subcategorySlug(p),
                 p.getPrice(), p.getOldPrice(), p.getRating(), p.getReviewsCount(), mainImage(p),
-                p.getStock(), p.isNewProduct(), p.getSold(),
+                p.getDisplayStock(), p.isNewProduct(), p.getSold(),
                 imageUrls(p), details, p.getDescription(), specs(p), p.getStatus().json(), combinations,
                 p.getCreatedAt(), p.getUpdatedAt());
     }

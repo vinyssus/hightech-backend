@@ -50,9 +50,11 @@ public class InventoryService {
 
     /** Article réservé : copie figée pour la ligne de commande. */
     public record ReservedLine(String productId, String sku, String name, String variantLabel, String image,
-                               long unitPrice, int qty) {
+                               long unitPrice, int qty, boolean stockDecremented) {
         public OrderItem toOrderItem() {
-            return new OrderItem(productId, sku, name, variantLabel, image, unitPrice, qty);
+            OrderItem item = new OrderItem(productId, sku, name, variantLabel, image, unitPrice, qty);
+            item.setStockDecremented(stockDecremented);
+            return item;
         }
     }
 
@@ -109,7 +111,7 @@ public class InventoryService {
         String image = CatalogMapper.mainImage(p);
         long unitPrice = p.getPrice();
         Long oldPrice = p.getOldPrice();
-        int stock = p.getStock();
+        Integer stock = p.getDisplayStock();   // null : stock non suivi, quantité non limitée
         String sku = null;
         String name = p.getName();
 
@@ -118,7 +120,7 @@ public class InventoryService {
                     .filter(x -> x.getSku().equals(in.sku())).findFirst().orElse(null);
             if (v == null) {
                 return new PricedLine(new CartLine(p.getId(), in.sku(), name, image, p.getPrice(), oldPrice,
-                        p.getStock(), 0, false, in.sku() == null ? CHOOSE_OPTION : INVALID_OPTION),
+                        p.getDisplayStock(), 0, false, in.sku() == null ? CHOOSE_OPTION : INVALID_OPTION),
                         IssueCode.INVALID_VARIANT);
             }
             sku = v.getSku();
@@ -134,7 +136,7 @@ public class InventoryService {
                     0, false, INVALID_OPTION), IssueCode.INVALID_VARIANT);
         }
 
-        if (stock <= 0) {
+        if (stock != null && stock <= 0) {
             return new PricedLine(new CartLine(p.getId(), sku, name, image, unitPrice, oldPrice, 0, 0, false,
                     UNAVAILABLE), IssueCode.OUT_OF_STOCK);
         }
@@ -146,7 +148,7 @@ public class InventoryService {
             message = MAX_QTY;
             issue = IssueCode.QUANTITY_EXCEEDED;
         }
-        if (qty > stock) {
+        if (stock != null && qty > stock) {
             qty = stock;
             message = "Plus que " + stock + " en stock";
             issue = IssueCode.QUANTITY_EXCEEDED;
@@ -232,7 +234,7 @@ public class InventoryService {
             }
             String stockKey = p.getId() + "|" + (variant == null ? "" : variant.getSku());
             int wanted = demand.merge(stockKey, item.qty(), Integer::sum);
-            int available = variant != null ? variant.getStock() : p.getStock();
+            int available = variant != null ? variant.getStock() : p.isStockTracked() ? p.getStock() : Integer.MAX_VALUE;
             if (available < wanted) {
                 int left = Math.max(available - (wanted - item.qty()), 0);
                 errors.put(key, left == 0 ? UNAVAILABLE : "Plus que " + left + " en stock");
@@ -250,15 +252,18 @@ public class InventoryService {
             ProductVariant variant = pl.variant();
             int qty = pl.item().qty();
             long unitPrice = p.getPrice() + (variant != null ? variant.getPriceDelta() : 0);
+            boolean decremented = true;
             if (variant != null) {
                 variant.setStock(variant.getStock() - qty);
                 p.recomputeStockFromVariants();
-            } else {
+            } else if (p.isStockTracked()) {
                 p.setStock(p.getStock() - qty);
+            } else {
+                decremented = false;   // stock non suivi : rien à décrémenter
             }
             String label = variant == null || variant.label().isEmpty() ? null : variant.label();
             reserved.add(new ReservedLine(p.getId(), variant == null ? null : variant.getSku(), p.getName(),
-                    label, CatalogMapper.mainImage(p), unitPrice, qty));
+                    label, CatalogMapper.mainImage(p), unitPrice, qty, decremented));
         }
         productRepository.flush();
         return reserved;
@@ -272,8 +277,8 @@ public class InventoryService {
         Map<String, Product> locked = lockProducts(sorted.stream().map(OrderItem::getProductId).toList());
         for (OrderItem item : sorted) {
             Product p = locked.get(item.getProductId());
-            if (p == null) {
-                continue;   // produit supprimé physiquement : rien à remettre
+            if (p == null || !item.isStockDecremented()) {
+                continue;   // produit supprimé physiquement, ou stock non suivi à la commande : rien à remettre
             }
             if (item.getSku() != null) {
                 variantRepository.findByProductIdForUpdate(p.getId()).stream()
@@ -281,7 +286,7 @@ public class InventoryService {
                         .findFirst()
                         .ifPresent(v -> v.setStock(v.getStock() + item.getQty()));
                 p.recomputeStockFromVariants();
-            } else {
+            } else if (p.isStockTracked()) {
                 p.setStock(p.getStock() + item.getQty());
             }
         }

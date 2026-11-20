@@ -76,6 +76,10 @@ public class Product {
     @Column(nullable = false)
     private int stock;
 
+    /** false : stock non renseigné (non suivi), vendable sans limite, jamais affiché. Toujours true avec variantes. */
+    @Column(name = "stock_tracked", nullable = false)
+    private boolean stockTracked = true;
+
     @Column(name = "is_new", nullable = false)
     private boolean newProduct = true;
 
@@ -141,6 +145,7 @@ public class Product {
     public void recomputeStockFromVariants() {
         if (hasVariants()) {
             stock = variants.stream().mapToInt(ProductVariant::getStock).sum();
+            stockTracked = true;
         }
     }
 
@@ -199,6 +204,16 @@ public class Product {
 
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+    public boolean isStockTracked() { return stockTracked; }
+
+    /** Stock affiché : null si non suivi. */
+    public Integer getDisplayStock() { return stockTracked ? stock : null; }
+
+    /** null = stock non renseigné (non suivi, quantité illimitée). */
+    public void setOptionalStock(Integer value) {
+        this.stockTracked = value != null;
+        this.stock = value == null ? 0 : value;
+    }
 
     public boolean isNewProduct() { return newProduct; }
     public void setNewProduct(boolean newProduct) { this.newProduct = newProduct; }

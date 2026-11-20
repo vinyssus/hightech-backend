@@ -36,7 +36,7 @@ public record ProductRequest(
         @Positive(message = "L'ancien prix doit être supérieur à 0.")
         Long oldPrice,
 
-        @NotNull(message = "Le stock est obligatoire.")
+        /** Facultatif : absent ou null = stock non suivi (vendable sans limite, non affiché). Ignoré avec variantes. */
         @PositiveOrZero(message = "Le stock doit être un entier positif ou nul.")
         Integer stock,
 

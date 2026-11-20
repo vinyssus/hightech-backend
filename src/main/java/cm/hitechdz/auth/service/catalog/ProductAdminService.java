@@ -133,7 +133,8 @@ public class ProductAdminService {
         apply(p, req, v);
         p.setSlug(uniqueSlug(req.name(), p.getId(), null));
         p.setNewProduct(req.isNew() == null || req.isNew());
-        p.setStock(req.stock());
+        p.setOptionalStock(req.stock());
+        p.recomputeStockFromVariants();
         replaceImages(p, req.images(), List.of());
         SearchText.refresh(p);
         productRepository.saveAndFlush(p);
@@ -154,7 +155,7 @@ public class ProductAdminService {
             p.setNewProduct(req.isNew());
         }
         if (!p.hasVariants()) {
-            p.setStock(req.stock());   // avec variantes, le stock est la somme des combinaisons
+            p.setOptionalStock(req.stock());   // avec variantes, le stock est la somme des combinaisons
         }
         List<String> removed = replaceImages(p, req.images(), new ArrayList<>(p.getImages()));
         SearchText.refresh(p);

@@ -220,6 +220,11 @@ class CatalogIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.price").exists())
                 .andExpect(jsonPath("$.fieldErrors.brand").doesNotExist())   // marque facultative
                 .andExpect(jsonPath("$.fieldErrors.category").exists())
+                .andExpect(jsonPath("$.fieldErrors.stock").doesNotExist());   // stock facultatif (non suivi)
+        Map<String, Object> negative = new LinkedHashMap<>(bad);
+        negative.put("stock", -1);
+        send(post("/api/admin/products"), admin, negative)
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.stock").exists());
 
         send(post("/api/admin/products"), admin, product("Produit test", "HP", "inexistante", 1000, null, 1))

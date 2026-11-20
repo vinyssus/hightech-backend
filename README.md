@@ -550,3 +550,11 @@ Le logo par défaut (`src/main/resources/branding/hitech-dz-logo.png`, PNG trans
 
 Visites : `POST /api/analytics/visit {"visitorId":"<uuid aléatoire du navigateur>"}` → 204 (public, 30 appels / 10 min / IP).
 Seul `SHA-256(jour|identifiant)` est stocké (table `site_visits`), une fois par jour : ni IP, ni compte, ni suivi d'un jour à l'autre.
+
+## Stock facultatif
+
+`stock` est facultatif à la création et à la modification d'un produit sans variantes : absent ou `null` = **stock non suivi**
+(colonne `stock_tracked = false`). Le produit reste commandable (limite de 10 par ligne seulement), n'est jamais en rupture
+ni dans les alertes de stock faible, et l'API renvoie `"stock": null` (catalogue, détail, panier, admin) pour que rien ne
+soit affiché. Renseigner un nombre réactive le suivi. Les produits à variantes gardent un stock par combinaison (toujours suivi).
+Une commande ne remet en stock que ce qu'elle a réellement décrémenté (`order_items.stock_decremented`).

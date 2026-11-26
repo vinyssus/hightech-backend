@@ -1,0 +1,41 @@
+# Vérifie la pile de déploiement serveur (deploy/) : PostgreSQL + API + Caddy démarrent et répondent en HTTPS.
+name: self-host-stack
+on:
+  push:
+    branches: [deploy/self-host]
+    paths: ["deploy/**", "Dockerfile", ".github/workflows/self-host-stack.yml"]
+  workflow_dispatch:
+jobs:
+  stack:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scripts
+        run: for f in *.sh; do bash -n "$f"; done
+      - name: Test .env
+        run: |
+          cp env.prod.example .env
+          sed -i "s|^DOMAIN=.*|DOMAIN=localhost|" .env
+          sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 24)|" .env
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n')|" .env
+          sed -i "s|^RELAY_SECRET=.*|RELAY_SECRET=$(openssl rand -hex 32)|" .env
+          sed -i "s|^CLOUDINARY_CLOUD_NAME=.*|CLOUDINARY_CLOUD_NAME=test|; s|^CLOUDINARY_API_KEY=.*|CLOUDINARY_API_KEY=test|; s|^CLOUDINARY_API_SECRET=.*|CLOUDINARY_API_SECRET=test|" .env
+          docker compose -f docker-compose.prod.yml --env-file .env config -q
+      - name: Start db + api + caddy
+        run: |
+          C="docker compose -f docker-compose.prod.yml --env-file .env"
+          $C up -d --build db api
+          $C up -d --no-deps caddy
+          for i in $(seq 1 60); do
+            code=$(curl -sk -o /tmp/options.json -w '%{http_code}' https://localhost/api/checkout/options || true)
+            [ "$code" = "200" ] && break; sleep 3
+          done
+          $C logs api | tail -30
+          echo "status: $code"; cat /tmp/options.json; echo
+          test "$code" = "200"
+          grep -q '"shippingZones"' /tmp/options.json
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/api/checkout/options)" = "308"
+          ! nc -z localhost 5432

@@ -1,0 +1,70 @@
+# HITECH DZ sur un serveur Ubuntu : base PostgreSQL, API Spring Boot, site (Node) et Caddy (HTTPS automatique).
+# Dossiers attendus :  /opt/hitech/hightech-backend  et  /opt/hitech/hitech-dz-commerce-suite
+# Lancement (depuis ce dossier) :  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+name: hitech
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hitechdz
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d hitechdz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Aucun port publié : la base n'est jamais joignable depuis Internet.
+
+  api:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8081"
+      DB_URL: jdbc:postgresql://db:5432/hitechdz
+      APP_PUBLIC_BASE_URL: https://${DOMAIN}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN},https://www.${DOMAIN}
+      FORWARD_HEADERS_STRATEGY: native     # IP réelle transmise par Caddy (réseau Docker interne)
+    depends_on:
+      db:
+        condition: service_healthy
+
+  site:
+    build:
+      context: ../../hitech-dz-commerce-suite
+      args:
+        VITE_WHATSAPP_NUMBER: ${WHATSAPP_NUMBER:-}
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://api:8081          # le relais /backend appelle l'API en interne
+      RELAY_SECRET: ${RELAY_SECRET}
+      RELAY_CLIENT_IP_HEADER: x-forwarded-for
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - site
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

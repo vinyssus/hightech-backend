@@ -7,3 +7,6 @@ target/
 .settings/
 .project
 .classpath
+
+# Secrets du serveur
+deploy/.env

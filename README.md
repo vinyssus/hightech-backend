@@ -558,3 +558,7 @@ Seul `SHA-256(jour|identifiant)` est stocké (table `site_visits`), une fois par
 ni dans les alertes de stock faible, et l'API renvoie `"stock": null` (catalogue, détail, panier, admin) pour que rien ne
 soit affiché. Renseigner un nombre réactive le suivi. Les produits à variantes gardent un stock par combinaison (toujours suivi).
 Une commande ne remet en stock que ce qu'elle a réellement décrémenté (`order_items.stock_decremented`).
+
+## Déploiement sur un serveur propre
+
+Voir [deploy/DEPLOIEMENT.md](deploy/DEPLOIEMENT.md) : Ubuntu + Docker (PostgreSQL, API, site, Caddy en HTTPS automatique).
